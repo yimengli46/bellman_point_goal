@@ -115,3 +115,34 @@ def get_obs_and_pose_by_action(env, act):
 	pose = (agent_pos[0], agent_pos[2], angle)
 
 	return obs, pose
+
+# Return success, SPL, soft_SPL, distance_to_goal measures
+def get_metrics(env,
+				episode_goal_positions,
+				success_distance,
+				start_end_episode_distance,
+				agent_episode_distance,
+				stop_signal):
+
+	curr_pos = env.get_agent_state().position
+
+	# returns distance to the closest goal position
+	distance_to_goal = env.geodesic_distance(curr_pos, [episode_goal_positions])
+
+	if distance_to_goal <= success_distance and stop_signal:
+		success = 1.0
+	else:
+		success = 0.0
+
+	spl = success * (start_end_episode_distance / max(start_end_episode_distance, agent_episode_distance) )
+
+	ep_soft_success = max(0, (1 - distance_to_goal / start_end_episode_distance) )
+	soft_spl = ep_soft_success * (start_end_episode_distance / max(start_end_episode_distance, agent_episode_distance) )
+
+	nav_metrics = {'distance_to_goal':distance_to_goal,
+			   'success':success,
+			   'spl':spl,
+			   'softspl':soft_spl}
+
+	print(f'========> {nav_metrics}')
+	return nav_metrics

@@ -54,7 +54,7 @@ class localNav_slam(object):
 		self.col_width = 1
 
 	
-	def plan_to_reach_frontier(self, agent_map_pose, chosen_frontier, occ_map):
+	def plan_to_reach_subgoal(self, agent_map_pose, subgoal_coords, occ_map):
 		'''
 		# check collision
 		if self.current_loc is not None and self.last_act == 0: # last action is moving forward
@@ -108,10 +108,7 @@ class localNav_slam(object):
 
 		#===========================================================================
 		self.current_loc = agent_map_pose
-		fron_centroid_coords = (int(chosen_frontier.centroid[1]),
-								int(chosen_frontier.centroid[0]))
 
-		subgoal_coords = fron_centroid_coords
 		subgoal_pose = pxl_coords_to_pose(subgoal_coords, self.pose_range,
 										  self.coords_range, self.WH)
 
@@ -207,7 +204,7 @@ class localNav_slam(object):
 		self.last_act = a
 
 		act = self.act_trans_dict[a]
-		return act, act_seq, subgoal_coords, subgoal_pose
+		return act, act_seq
 
 	def plan_to_reach_frontier_for_fig(self, agent_map_pose, chosen_frontier, occ_map):
 		'''

@@ -48,7 +48,7 @@ def nav_test(env_scene, output_folder, scene_floor_dict):
 
 		#================ load testing data ==================
 		try:
-			testing_data = scene_dict[floor_id]['start_pose']
+			testing_data = scene_dict[floor_id]['start_goal_pair']
 		except:
 			testing_data = []
 		if not cfg.EVAL.USE_ALL_START_POINTS:
@@ -61,33 +61,30 @@ def nav_test(env_scene, output_folder, scene_floor_dict):
 			print(
 				f'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA EPS {idx} BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 			)
-			start_pose = data
+			start_pose, goal_pose, start_goal_geodesic_distance = data
 			print(f'start_pose = {start_pose}')
 			saved_folder = f'{scene_output_folder}/eps_{idx}'
 			create_folder(saved_folder, clean_up=False)
-			flag = False
+			
 			steps = 0
-			covered_area_percent = 0
 			trajectory = []
 			action_lst = []
-			step_cov_pairs = None
+			
 			#'''
 			try:
 				if cfg.NAVI.STRATEGY == 'ANS':
 					covered_area_percent, steps, trajectory, action_lst, step_cov_pairs = nav_ANS(split, env, idx, scene_name, height, start_pose, saved_folder, device)
 				else:
-					covered_area_percent, steps, trajectory, action_lst, step_cov_pairs = nav_DP(split, env, idx, scene_name, height, start_pose, saved_folder, device)
+					steps, trajectory, action_lst, nav_metrics = nav_DP(split, env, idx, scene_name, height, start_pose, goal_pose, start_goal_geodesic_distance, saved_folder, device)
 			except:
 				print(f'CCCCCCCCCCCCCC failed {scene_name} EPS {idx} DDDDDDDDDDDDDDD')
 
 			result = {}
 			result['eps_id'] = idx
 			result['steps'] = steps
-			result['covered_area'] = covered_area_percent
 			result['trajectory'] = trajectory
 			result['actions'] = action_lst
-			result['step_cov_pairs'] = step_cov_pairs
-
+			result['nav_metrics'] = nav_metrics
 			results[idx] = result
 			#'''
 
@@ -107,7 +104,7 @@ def main():
 	parser.add_argument('--config',
 						type=str,
 						required=False,
-						default='exp_360degree_Greedy_NAVMESH_MAP_GT_Potential_1STEP_500STEPS.yaml')
+						default='exp_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS.yaml')
 	parser.add_argument('--j',
 						type=int,
 						required=False,

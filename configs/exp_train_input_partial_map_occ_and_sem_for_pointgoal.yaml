@@ -1,40 +1,40 @@
 MAIN:
-  SPLIT: 'train'
+  SPLIT: 'val'
 
 NAVI:
   NUM_STEPS: 500
   GT_OCC_MAP_TYPE: 'NAV_MESH'
-  HFOV: 360
+  HFOV: 90
   PERCEPTION: Potential
-  STRATEGY: FME
+  STRATEGY: Greedy
   D_type: 'Skeleton'
   FLAG_VISUALIZE_MIDDLE_TRAJ: False
   NUM_STEPS_EXPLORE: 1
 
 PRED:
-  TYPE: 'VIEW'
-  VIEW:
+  PARTIAL_MAP:
     BATCH_SIZE: 3
-    CHECKNAME: resnet
+    CHECKNAME: unet
     DEVICE: cuda
     DIVIDE_AREA: 100
     EPOCHS: 6
     EVAL_INTERVAL: 1
     FLAG_VISUALIZE_PRED_LABELS: False
-    INPUT: depth_and_sem
-    INPUT_CHANNEL: 43 # 42 + 1
+    INPUT: occ_and_sem
+    INPUT_CHANNEL: 45 # 42 + 3
     OUTPUT_CHANNEL: 4
-    INPUT_WH: (256, 256)
+    INPUT_WH: (480, 480)
     LOSS_TYPE: L1
-    NUM_GENERATED_SAMPLES_PER_SCENE: 1000
+    NEIGHBOR_SIZE: 40
+    NUM_GENERATED_SAMPLES_PER_SCENE: 100
     NUM_WORKERS: 2
     RESUME: ''
-    SAVED_FOLDER: 'output/model_weights_RESNET_input_view'
+    SAVED_FOLDER: 'output/model_weights_UNet_input_partial_map_for_pointgoal'
     STEP_GAP: 5
     LR: 1e-3
     NUM_PROCESS: 8
     multiprocessing: 'mp'
-    GEN_SAMPLES_SAVED_FOLDER: 'output/training_data_input_view_1000samples'
+    GEN_SAMPLES_SAVED_FOLDER: 'output/training_data_input_partial_map_for_pointgoal_5000samples'
 
 
 SAVE:

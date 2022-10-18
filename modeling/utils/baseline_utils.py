@@ -560,3 +560,9 @@ def spatial_transform_map(p, x, invert=True, mode="bilinear"):
     p_trans = F.grid_sample(p, grid, mode=mode, align_corners=False)
 
     return p_trans
+
+def Euclidean_Distance(pose1, pose2):
+    """Helper to compute Euclidean distance."""
+    p1 = (pose1[0], pose1[1])
+    p2 = (pose2[0], pose2[1])
+    return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)

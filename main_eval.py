@@ -14,7 +14,7 @@ def main():
 	parser.add_argument('--config',
 						type=str,
 						required=False,
-						default='exp_360degree_Greedy_NAVMESH_MAP_GT_Potential_1STEP_500STEPS.yaml')
+						default='exp_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS.yaml')
 	args = parser.parse_args()
 
 	cfg.merge_from_file(f'configs/{args.config}')
@@ -64,7 +64,7 @@ def main():
 				scene_output_folder = f'{output_folder}/{scene_name}'
 				create_folder(scene_output_folder)
 
-				testing_data = scene_dict[floor_id]['start_pose']
+				testing_data = scene_dict[floor_id]['start_goal_pair']
 				if not cfg.EVAL.USE_ALL_START_POINTS:
 					if len(testing_data) > 3:
 						testing_data = testing_data[:3]
@@ -77,32 +77,28 @@ def main():
 					print(
 						f'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA EPS {idx} BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 					)
-					start_pose = data
+					start_pose, goal_pose, start_goal_geodesic_distance = data
 					print(f'start_pose = {start_pose}')
 					saved_folder = f'{scene_output_folder}/eps_{idx}'
 					create_folder(saved_folder, clean_up=False)
-					flag = False
+
 					steps = 0
-					covered_area_percent = 0
 					trajectory = []
 					action_lst = []
-					step_cov_pairs = None
 					#try:
 					if cfg.NAVI.STRATEGY == 'ANS':
 						covered_area_percent, steps, trajectory, action_lst, step_cov_pairs = nav_ANS(split, env, idx, scene_name, height, start_pose, saved_folder, device)
 					else:
-						covered_area_percent, steps, trajectory, action_lst, step_cov_pairs = nav_DP(split, env, idx, scene_name, height, start_pose, saved_folder, device)
+						steps, trajectory, action_lst, nav_metrics = nav_DP(split, env, idx, scene_name, height, start_pose, goal_pose, start_goal_geodesic_distance, saved_folder, device)
 					#except:
 					#	print(f'CCCCCCCCCCCCCC failed EPS {idx} DDDDDDDDDDDDDDD')
 
 					result = {}
 					result['eps_id'] = idx
 					result['steps'] = steps
-					result['covered_area'] = covered_area_percent
 					result['trajectory'] = trajectory
 					result['actions'] = action_lst
-					result['step_cov_pairs'] = step_cov_pairs
-
+					result['nav_metrics'] = nav_metrics
 					results[idx] = result
 
 				np.save(f'{output_folder}/results_{scene_name}.npy', results)

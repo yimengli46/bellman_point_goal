@@ -29,7 +29,7 @@ scene_name = 'yqstnuAEVhm_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
 scene_floor_dict = np.load(f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy', allow_pickle=True).item()
 
-cfg.merge_from_file('configs/exp_90degree_DP_NAVMESH_MAP_UNet_OCCandSEM_Potential_D_Skeleton_Dall_1STEP_500STEPS.yaml')
+cfg.merge_from_file('configs/exp_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS.yaml')
 cfg.freeze()
 
 act_dict = {-1: 'Done', 0: 'stop', 1: 'forward', 2: 'left', 3:'right'}
@@ -49,7 +49,7 @@ env = habitat.sims.make_sim(config.SIMULATOR.TYPE, config=config.SIMULATOR)
 env.reset()
 
 scene_height = scene_floor_dict[env_scene][floor_id]['y']
-start_pose = (0.03828, -8.55946, 0.2964) #(0.272, -5.5946, -1.1016) #(-0.35, -0.85, 0.2964) #(0.03828, -8.55946, 0.2964)
+start_pose, goal_pose, _ = scene_floor_dict[env_scene][floor_id]['start_goal_pair'][0]
 saved_folder = f'output/TESTING_RESULTS_Frontier'
 
 #============================ get scene ins to cat dict
@@ -96,7 +96,7 @@ semMap_module = SemanticMap(split, scene_name, pose_range, coords_range, WH, ins
 traverse_lst = []
 
 #===================================== setup the start location ===============================#
-
+goal_coord = pose_to_coords((goal_pose[0], -goal_pose[1]), pose_range, coords_range, WH)
 agent_pos = np.array([start_pose[0], scene_height, start_pose[1]]) # (6.6, -6.9), (3.6, -4.5)
 # check if the start point is navigable
 if not env.is_navigable(agent_pos):
@@ -150,139 +150,112 @@ while step < cfg.NAVI.NUM_STEPS:
 		observed_occupancy_map, gt_occupancy_map, observed_area_flag, built_semantic_map = semMap_module.get_observed_occupancy_map(agent_map_pose)
 		t2 = timer()
 		print(f'get occupan map time = {t2 - t1}')
-		if frontiers is not None:
-			old_frontiers = frontiers
 
-		frontiers = fr_utils.get_frontiers(observed_occupancy_map)
-		frontiers = frontiers - visited_frontier
-		print(f'before filtering, num(frontiers) = {len(frontiers)}')
-		t3 = timer()
-		print(f'get frontier time = {t3 - t2}')
-		frontiers, dist_occupancy_map = LN.filter_unreachable_frontiers(frontiers, agent_map_pose, observed_occupancy_map)
-		print(f'after filtering, num(frontiers) = {len(frontiers)}')
-		t4 = timer()
-		print(f'filter unreachable frontiers time = {t4 - t3}')
-		if cfg.NAVI.PERCEPTION == 'UNet_Potential':
-			frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
-				observed_area_flag, built_semantic_map, None, unet_model, device, LN, agent_map_pose)
-		elif cfg.NAVI.PERCEPTION == 'Potential':
-			if cfg.NAVI.D_type == 'Skeleton':
+		#======================= check if goal point is visible =============================
+		if observed_occupancy_map[goal_coord[1], goal_coord[0]] != cfg.FE.UNOBSERVED_VAL:
+			subgoal_coords = goal_coord
+			MODE_FIND_GOAL = True
+			chosen_frontier = None
+		#============================== find the nearest frontier ==========================
+		else:
+			if frontiers is not None:
+				old_frontiers = frontiers
+
+			frontiers = fr_utils.get_frontiers(observed_occupancy_map)
+			frontiers = frontiers - visited_frontier
+			print(f'before filtering, num(frontiers) = {len(frontiers)}')
+			t3 = timer()
+			print(f'get frontier time = {t3 - t2}')
+			frontiers, dist_occupancy_map = LN.filter_unreachable_frontiers(frontiers, agent_map_pose, observed_occupancy_map)
+			print(f'after filtering, num(frontiers) = {len(frontiers)}')
+			t4 = timer()
+			print(f'filter unreachable frontiers time = {t4 - t3}')
+			if cfg.NAVI.PERCEPTION == 'UNet_Potential':
 				frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
-					observed_area_flag, built_semantic_map, skeleton)
-			else:
-				frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
-					observed_area_flag, built_semantic_map, None)
-		t5 = timer()
-		print(f'compute frontier potential time = {t5 - t4}')
+					observed_area_flag, built_semantic_map, None, unet_model, device, LN, agent_map_pose)
+			elif cfg.NAVI.PERCEPTION == 'Potential':
+				if cfg.NAVI.D_type == 'Skeleton':
+					frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
+						observed_area_flag, built_semantic_map, skeleton)
+				else:
+					frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
+						observed_area_flag, built_semantic_map, None)
+			t5 = timer()
+			print(f'compute frontier potential time = {t5 - t4}')
 
-		if old_frontiers is not None:
-			frontiers = fr_utils.update_frontier_set(old_frontiers, frontiers, max_dist=5, chosen_frontier=chosen_frontier)
-		t6 = timer()
-		print(f'update frontiers time = {t6 - t5}')
+			if old_frontiers is not None:
+				frontiers = fr_utils.update_frontier_set(old_frontiers, frontiers, max_dist=5, chosen_frontier=chosen_frontier)
+			t6 = timer()
+			print(f'update frontiers time = {t6 - t5}')
 
-		if cfg.NAVI.STRATEGY == 'Greedy':
-			chosen_frontier = fr_utils.get_frontier_with_maximum_area(frontiers, gt_occupancy_map)
-		elif cfg.NAVI.STRATEGY == 'DP':
-			top_frontiers = fr_utils.select_top_frontiers(frontiers, top_n=6)
-			chosen_frontier = fr_utils.get_frontier_with_DP(top_frontiers, agent_map_pose, dist_occupancy_map, \
-				cfg.NAVI.NUM_STEPS-step, LN)
-		elif cfg.NAVI.STRATEGY == 'FME':
-			chosen_frontier = fr_utils.get_the_nearest_frontier(frontiers, agent_map_pose, dist_occupancy_map, LN)
-		t7 = timer()
-		print(f'select frontiers time = {t7 - t6}')
+			if cfg.NAVI.STRATEGY == 'Optimistic':
+				chosen_frontier = fr_utils.get_frontier_nearest_to_goal(frontiers, goal_pose, LN)
+			elif cfg.NAVI.STRATEGY == 'DP':
+				top_frontiers = fr_utils.select_top_frontiers(frontiers, top_n=6)
+				chosen_frontier = fr_utils.get_frontier_with_DP(top_frontiers, agent_map_pose, dist_occupancy_map, \
+					cfg.NAVI.NUM_STEPS-step, LN)
 
-		#============================================= visualize semantic map ===========================================#
-		if True:
-			#==================================== visualize the path on the map ==============================
-			#built_semantic_map, observed_area_flag, _ = semMap_module.get_semantic_map()
+			t7 = timer()
+			print(f'select frontiers time = {t7 - t6}')
 
-			#color_built_semantic_map = apply_color_to_map(built_semantic_map, flag_small_categories=True)
-			#color_built_semantic_map = change_brightness(color_built_semantic_map, observed_area_flag, value=60)
+			subgoal_coords = (int(chosen_frontier.centroid[1]), int(chosen_frontier.centroid[0]))
 
-			#=================================== visualize the agent pose as red nodes =======================
-			x_coord_lst, z_coord_lst, theta_lst = [], [], []
-			for cur_pose in traverse_lst:
-				x_coord, z_coord = pose_to_coords((cur_pose[0], cur_pose[1]), pose_range, coords_range, WH)
-				x_coord_lst.append(x_coord)
-				z_coord_lst.append(z_coord)			
-				theta_lst.append(cur_pose[2])
+		MODE_FIND_SUBGOAL = False
 
-			#'''
-			fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20, 10))
-			ax[0].imshow(observed_occupancy_map, cmap='gray')
-			marker, scale = gen_arrow_head_marker(theta_lst[-1])
-			ax[0].scatter(x_coord_lst[-1], z_coord_lst[-1], marker=marker, s=(30*scale)**2, c='red', zorder=5)
-			ax[0].plot(x_coord_lst, z_coord_lst, lw=5, c='blue', zorder=3)
+	#============================================= visualize semantic map ===========================================#
+	if True:
+		#==================================== visualize the path on the map ==============================
+		#built_semantic_map, observed_area_flag, _ = semMap_module.get_semantic_map()
+
+		#color_built_semantic_map = apply_color_to_map(built_semantic_map, flag_small_categories=True)
+		#color_built_semantic_map = change_brightness(color_built_semantic_map, observed_area_flag, value=60)
+
+		#=================================== visualize the agent pose as red nodes =======================
+		x_coord_lst, z_coord_lst, theta_lst = [], [], []
+		for cur_pose in traverse_lst:
+			x_coord, z_coord = pose_to_coords((cur_pose[0], cur_pose[1]), pose_range, coords_range, WH)
+			x_coord_lst.append(x_coord)
+			z_coord_lst.append(z_coord)			
+			theta_lst.append(cur_pose[2])
+
+		#'''
+		fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20, 10))
+		ax[0].imshow(observed_occupancy_map, cmap='gray')
+		marker, scale = gen_arrow_head_marker(theta_lst[-1])
+		ax[0].scatter(x_coord_lst[-1], z_coord_lst[-1], marker=marker, s=(30*scale)**2, c='red', zorder=5)
+		ax[0].scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='yellow', zorder=5)
+		ax[0].plot(x_coord_lst, z_coord_lst, lw=5, c='blue', zorder=3)
+		if not MODE_FIND_GOAL:
 			for f in frontiers:
 				ax[0].scatter(f.points[1], f.points[0], c='green', zorder=2)
 				ax[0].scatter(f.centroid[1], f.centroid[0], c='red', zorder=2)
 			if chosen_frontier is not None:
 				ax[0].scatter(chosen_frontier.points[1], chosen_frontier.points[0], c='yellow', zorder=4)
 				ax[0].scatter(chosen_frontier.centroid[1], chosen_frontier.centroid[0], c='red', zorder=4)
-			ax[0].get_xaxis().set_visible(False)
-			ax[0].get_yaxis().set_visible(False)
-			#ax.set_title('improved observed_occ_map + frontiers')
+		ax[0].get_xaxis().set_visible(False)
+		ax[0].get_yaxis().set_visible(False)
+		#ax.set_title('improved observed_occ_map + frontiers')
 
-			ax[1].imshow(observed_occupancy_map)
-			ax[1].get_xaxis().set_visible(False)
-			ax[1].get_yaxis().set_visible(False)
+		ax[1].imshow(observed_occupancy_map)
+		ax[1].get_xaxis().set_visible(False)
+		ax[1].get_yaxis().set_visible(False)
 
-			fig.tight_layout()
-			plt.title('observed area')
-			plt.show()
-			#fig.savefig(f'{saved_folder}/step_{step}_semmap.jpg')
-			#plt.close()
-			#assert 1==2
-			#'''
-
-			#==================== show the unobserved map with lower brightness ===================
-			'''
-			color_occ_map = np.zeros((H, W, 3), dtype='uint8')
-			color_occ_map[gt_occ_map == 1] = [255, 255, 255]
-			color_occ_map[gt_occ_map == 0] = [120, 120, 130]
-			color_occ_map = change_brightness(color_occ_map, observed_area_flag, value=60)
-
-			fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 10))
-			ax.imshow(color_occ_map)
-			marker, scale = gen_arrow_head_marker(theta_lst[-1])
-			ax.scatter(x_coord_lst[-1], z_coord_lst[-1], marker=marker, s=(30*scale)**2, c='blue', zorder=5)
-			ax.plot(x_coord_lst, z_coord_lst, lw=5, c='magenta', zorder=3)
-
-			for f in frontiers:
-				ax.scatter(f.points[1], f.points[0], c='green', zorder=2)
-				ax.scatter(f.centroid[1], f.centroid[0], c='red', zorder=2)
-			if chosen_frontier is not None:
-				ax.scatter(chosen_frontier.points[1], chosen_frontier.points[0], c='yellow', zorder=4)
-				ax.scatter(chosen_frontier.centroid[1], chosen_frontier.centroid[0], c='red', zorder=4)
-			ax.get_xaxis().set_visible(False)
-			ax.get_yaxis().set_visible(False)
-			#ax.set_title('improved observed_occ_map + frontiers')
-
-
-			fig.tight_layout()
-			#plt.title('observed area')
-			#plt.show()
-			fig.savefig(f'{saved_folder}/step_{step}_semmap.jpg')
-			plt.close()
-			'''
-
+		fig.tight_layout()
+		plt.title('observed area')
+		plt.show()
+		#fig.savefig(f'{saved_folder}/step_{step}_semmap.jpg')
+		#plt.close()
+		#assert 1==2
+		#'''
 
 	#===================================== check if exploration is done ========================
-	if chosen_frontier is None:
+	if (chosen_frontier is None) and (not MODE_FIND_GOAL):
 		print('There are no more frontiers to explore. Stop navigation.')
 		break
 
-	#==================================== update particle filter =============================
-	if MODE_FIND_SUBGOAL:
-		MODE_FIND_SUBGOAL = False
-		explore_steps = 0
-		
-		#print(f'subgoal_coords = {subgoal_coords}')
-
 	# ================================ take next action ====================================
 	#t8 = timer()
-	act, act_seq, subgoal_coords, subgoal_pose = LS.plan_to_reach_frontier(agent_map_pose, chosen_frontier, 
-		observed_occupancy_map)
+	act, act_seq = LS.plan_to_reach_subgoal(agent_map_pose, subgoal_coords, observed_occupancy_map)
 	#t9 = timer()
 	#print(f'local navigation time = {t9 - t8}')
 	#print(f'subgoal_coords = {subgoal_coords}')
@@ -290,9 +263,13 @@ while step < cfg.NAVI.NUM_STEPS:
 	print(f'action = {act_dict[act]}')
 	
 	if act == -1 or act == 0: # finished navigating to the subgoal
-		print(f'reached the subgoal')
-		MODE_FIND_SUBGOAL = True
-		visited_frontier.add(chosen_frontier)
+		if MODE_FIND_GOAL:
+			print('Reached the point goal! Stop the episode.')
+			break
+		else:
+			print(f'reached the subgoal')
+			MODE_FIND_SUBGOAL = True
+			visited_frontier.add(chosen_frontier)
 	else:
 		step += 1
 		explore_steps += 1

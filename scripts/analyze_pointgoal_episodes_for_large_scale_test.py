@@ -21,7 +21,7 @@ saved_folder = 'output/scene_height_distribution'
 scene_start_y_dict = {}
 scene_height_dict = {}
 
-filename = f'data/datasets/pointnav/mp3d/exploration_eval/{split}/{split}.json.gz'
+filename = f'data/datasets/pointnav/mp3d/v1/{split}/{split}.json.gz'
 with gzip.open(filename , 'rb') as f:
     data = json.loads(f.read())
 episodes = data['episodes']
@@ -103,10 +103,16 @@ for episode in episodes:
 
             pose = (x, z, phi)
 
-            if 'start_pose' in scene_floor_dict[scene_name][idx_floor]:
-                scene_floor_dict[scene_name][idx_floor]['start_pose'].append(pose)
+            goal_position = episode['goals'][0]['position']
+
+            geodesic_distance = episode['info']['geodesic_distance']
+
+            start_goal_pair = (pose, (goal_position[0], goal_position[2]), geodesic_distance)
+
+            if 'start_goal_pair' in scene_floor_dict[scene_name][idx_floor]:
+                scene_floor_dict[scene_name][idx_floor]['start_goal_pair'].append(start_goal_pair)
             else:
-                scene_floor_dict[scene_name][idx_floor]['start_pose'] = [pose]
+                scene_floor_dict[scene_name][idx_floor]['start_goal_pair'] = [start_goal_pair]
 
             break
 

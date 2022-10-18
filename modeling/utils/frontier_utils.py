@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from core import cfg
 import scipy.ndimage
-from .baseline_utils import pose_to_coords, apply_color_to_map, crop_map, spatial_transform_map
+from .baseline_utils import pose_to_coords, apply_color_to_map, crop_map, spatial_transform_map, pxl_coords_to_pose
 from math import sqrt
 from operator import itemgetter
 import torch
@@ -651,38 +651,25 @@ def nearest_value_og(occupancy_grid, i, j, threshold=4):
 	return occupancy_grid[i][j]
 
 
-def get_frontier_with_maximum_area(frontiers, gt_occupancy_grid):
-	""" select frontier with the maximum area from frontiers.
-
-	used for the 'Greedy' strategy.
+def get_frontier_nearest_to_goal(frontiers, goal_pose, LN):
+	""" select frontier nearest to the point goal
+	used for the 'Optmistic' strategy.
 	"""
-	if cfg.NAVI.PERCEPTION == 'Anticipation':
-		count_free_space_at_frontiers(frontiers, gt_occupancy_grid)
-		max_area = 0
-		max_fron = None
-		for fron in frontiers:
-			if fron.area_neigh > max_area:
-				max_area = fron.area_neigh
-				max_fron = fron
-	elif cfg.NAVI.PERCEPTION == 'Potential' or cfg.NAVI.PERCEPTION == 'UNet_Potential':
-		max_area = 0
-		max_fron = None
-		for fron in frontiers:
-			if fron.is_from_last_chosen:
-				R = fron.R
-			else:
-				R = fron.R
-			#print(f'R = {R}')
-			if max_fron is None:
-				max_area = R
-				max_fron = fron
-			elif R > max_area:
-				max_area = R
-				max_fron = fron
-			elif R == max_area and hash(fron) > hash(max_fron):
-				max_area = R
-				max_fron = fron
-	return max_fron
+	goal_map_pose = (goal_pose[0], -goal_pose[1])
+
+	min_dist = 1e10
+	min_fron = None
+	for fron in frontiers:
+		fron_centroid_map_pose = LN.convert_coord_to_pose((int(fron.centroid[0]), int(fron.centroid[1])))
+		dist = _eucl_dist(fron_centroid_map_pose, goal_map_pose)
+
+		if dist < min_dist:
+			min_dist = dist 
+			min_fron = fron 
+		elif dist == min_dist and hash(fron) > hash(min_fron):
+			min_dist = dist 
+			min_fron = fron
+	return min_fron
 
 def get_the_nearest_frontier(frontiers, agent_pose, dist_occupancy_map, LN):
 	""" select nearest frontier to the robot.
