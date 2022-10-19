@@ -660,7 +660,7 @@ def get_frontier_nearest_to_goal(frontiers, goal_pose, LN):
 	min_dist = 1e10
 	min_fron = None
 	for fron in frontiers:
-		fron_centroid_map_pose = LN.convert_coord_to_pose((int(fron.centroid[0]), int(fron.centroid[1])))
+		fron_centroid_map_pose = LN.convert_coord_to_pose((int(fron.centroid[1]), int(fron.centroid[0])))
 		dist = _eucl_dist(fron_centroid_map_pose, goal_map_pose)
 
 		if dist < min_dist:

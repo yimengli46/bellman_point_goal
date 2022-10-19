@@ -219,7 +219,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 					   s=(30 * scale)**2,
 					   c='red',
 					   zorder=5)
-			ax.scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='yellow', zorder=5)
+			ax.scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='blue', zorder=5)
 			ax.scatter(x_coord_lst, 
 					   z_coord_lst, 
 					   c=range(len(x_coord_lst)), 
@@ -335,7 +335,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 					  s=50,
 					  c='red',
 					  zorder=5)
-		ax[0].scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='yellow', zorder=5)
+		ax[0].scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='blue', zorder=5)
 		ax[0].scatter(x_coord_lst, 
 				   z_coord_lst, 
 				   c=range(len(x_coord_lst)), 
