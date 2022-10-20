@@ -23,9 +23,9 @@ import torch
 from collections import OrderedDict
 
 split = 'test' #'test' #'train'
-env_scene = 'yqstnuAEVhm' #'17DRP5sb8fy' #'yqstnuAEVhm'
+env_scene = 'WYY7iVyf5p8' #'17DRP5sb8fy' #'yqstnuAEVhm'
 floor_id = 0
-scene_name = 'yqstnuAEVhm_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
+scene_name = 'WYY7iVyf5p8_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
 scene_floor_dict = np.load(f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy', allow_pickle=True).item()
 
@@ -49,7 +49,7 @@ env = habitat.sims.make_sim(config.SIMULATOR.TYPE, config=config.SIMULATOR)
 env.reset()
 
 scene_height = scene_floor_dict[env_scene][floor_id]['y']
-start_pose, goal_pose, _ = scene_floor_dict[env_scene][floor_id]['start_goal_pair'][0]
+start_pose, goal_pose, _ = scene_floor_dict[env_scene][floor_id]['start_goal_pair'][2]
 saved_folder = f'output/TESTING_RESULTS_Frontier'
 
 #============================ get scene ins to cat dict
@@ -151,8 +151,8 @@ while step < cfg.NAVI.NUM_STEPS:
 		t2 = timer()
 		print(f'get occupan map time = {t2 - t1}')
 
-		#======================= check if goal point is visible =============================
-		if observed_occupancy_map[goal_coord[1], goal_coord[0]] != cfg.FE.UNOBSERVED_VAL:
+		#======================= check if goal point is reachable =============================
+		if LN.evaluate_point_goal_reachable(goal_coord, agent_map_pose, observed_occupancy_map):
 			subgoal_coords = goal_coord
 			MODE_FIND_GOAL = True
 			chosen_frontier = None

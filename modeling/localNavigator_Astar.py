@@ -59,6 +59,20 @@ class localNav_Astar:
 		self.path_pose_action = []
 		self.path_idx = -1  # record the index of the agent in the path
 
+	def evaluate_point_goal_reachable(self, goal_coords, agent_pose, occupancy_map):
+		agent_coords = pose_to_coords(agent_pose, self.pose_range,
+									  self.coords_range, self.WH)
+		
+		binary_occupancy_map = occupancy_map.copy()
+		binary_occupancy_map[binary_occupancy_map == cfg.FE.UNOBSERVED_VAL] = cfg.FE.COLLISION_VAL
+		binary_occupancy_map[binary_occupancy_map == cfg.FE.COLLISION_VAL] = 0
+
+		labels, nb = scipy.ndimage.label(binary_occupancy_map, structure=np.ones((3,3)))
+		agent_label = labels[agent_coords[1], agent_coords[0]]
+		
+		goal_label = labels[goal_coords[1], goal_coords[0]]
+		return goal_label == agent_label
+
 	def filter_unreachable_frontiers(self, frontiers, agent_pose,
 									 occupancy_map):
 		""" remove the unreachable frontiers from current agent_pose given the occupancy_map.

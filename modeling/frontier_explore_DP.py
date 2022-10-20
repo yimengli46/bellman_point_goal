@@ -149,8 +149,8 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 			observed_occupancy_map, gt_occupancy_map, observed_area_flag, built_semantic_map = \
 				semMap_module.get_observed_occupancy_map(agent_map_pose)
 
-			#======================= check if goal point is visible =============================
-			if observed_occupancy_map[goal_coord[1], goal_coord[0]] != cfg.FE.UNOBSERVED_VAL:
+			#======================= check if goal point is reachable =============================
+			if LN.evaluate_point_goal_reachable(goal_coord, agent_map_pose, observed_occupancy_map):
 				subgoal_coords = goal_coord
 				MODE_FIND_GOAL = True
 				chosen_frontier = None
@@ -219,7 +219,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 					   s=(30 * scale)**2,
 					   c='red',
 					   zorder=5)
-			ax.scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='blue', zorder=5)
+			ax.scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='cyan', zorder=5)
 			ax.scatter(x_coord_lst, 
 					   z_coord_lst, 
 					   c=range(len(x_coord_lst)), 
@@ -335,7 +335,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 					  s=50,
 					  c='red',
 					  zorder=5)
-		ax[0].scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='blue', zorder=5)
+		ax[0].scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='cyan', zorder=5)
 		ax[0].scatter(x_coord_lst, 
 				   z_coord_lst, 
 				   c=range(len(x_coord_lst)), 
