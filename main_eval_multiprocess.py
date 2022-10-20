@@ -69,6 +69,7 @@ def nav_test(env_scene, output_folder, scene_floor_dict):
 			steps = 0
 			trajectory = []
 			action_lst = []
+			nav_metrics = {}
 			
 			#'''
 			try:
