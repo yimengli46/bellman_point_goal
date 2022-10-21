@@ -6,73 +6,38 @@ import matplotlib.pyplot as plt
 
 scene_list = cfg.MAIN.TEST_SCENE_LIST
 output_folder = 'output' #cfg.SAVE.TESTING_RESULTS_FOLDER
-result_folder = 'TESTING_RESULTS_360degree_Greedy_NAVMESH_MAP_GT_Potential_1STEP_500STEPS_AVOID_SWITCHING'
-#scene_list = ['2t7WUuJeko7_0', '5ZKStnWn8Zo_0', 'ARNzJeq3xxb_0', 'RPmz2sHmrrY_0', 'Vt2qJdWjCF2_0', 'WYY7iVyf5p8_0', 'YFuZgdQ5vWj_0', 'YVUC4YcDtcY_0', 'fzynW3qQPVF_0', 'gYvKGZ5eRqb_0', 'gxdoqLR6rwA_0', 'q9vSo1VnCiC_0', 'rqfALeAoiTq_0', 'wc2JMjhGNzB_0', 'yqstnuAEVhm_0']
+result_folder = 'TESTING_RESULTS_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS'
 
-
-avg_percent_list = []
-avg_step_list = []
-thresh_percent = .01
-
-
-df = pd.DataFrame(columns=['Scene', 'Run', 'Num_steps', 'Coverage', 'Scene_Area'])
-df['Num_steps'] = df['Num_steps'].astype(int)
-df['Coverage'] = df['Coverage'].astype(float)
+df = pd.DataFrame(columns=['Scene', 'Run', 'Success', 'SPL', 'SoftSPL'])
+df['Success'] = df['Success'].astype(int)
+df['SPL'] = df['SPL'].astype(float)
+df['SoftSPL'] = df['SoftSPL'].astype(float)
 
 for scene_name in scene_list:
-	try:
-		#========================== load the scene map===========================
-		sem_map_npy = np.load(
-			f'output/semantic_map/test/{scene_name}/BEV_semantic_map.npy',
-			allow_pickle=True).item()
-		semantic_map, pose_range, coords_range, WH = read_map_npy(sem_map_npy)
-		occ_map = semantic_map > 0
-		area = np.sum(occ_map) * .0025
+	results_npy = np.load(f'{output_folder}/{result_folder}/results_{scene_name}.npy', allow_pickle=True).item()
+	num_test = len(results_npy.keys())
 
-		results_npy = np.load(f'{output_folder}/{result_folder}/results_{scene_name}.npy', allow_pickle=True).item()
-		num_test = len(results_npy.keys())
+	percent_list = []
+	step_list = []
 
-		percent_list = []
-		step_list = []
+	for i in range(num_test):
+		result = results_npy[i]
 
-		for i in range(num_test):
-			result = results_npy[i]
-			#print(f'result = {result}')
-			#flag_suc = result['flag']
-			#if flag_suc:
-			percent = result['covered_area']
-			step = result['steps']
-			if percent > thresh_percent: # to deal with the bad start points
-				percent_list.append(percent)
-				step_list.append(step)
+		eps_id = result['eps_id']
+		try:
+			metrics_success = result['nav_metrics']['success']
+			metrics_spl = result['nav_metrics']['spl']
+			metrics_softspl = result['nav_metrics']['softspl']
 
-			df = df.append({'Scene': scene_name, 'Run': i, 'Num_steps': step, 'Coverage': percent, 'Scene_Area': area}, 
+			df = df.append({'Scene': scene_name, 'Run': eps_id, 'Success': metrics_success, 'SPL': metrics_spl, 'SoftSPL': metrics_softspl}, 
 				ignore_index=True)
-			#else:
-			#	df = df.append({'Scene': scene_name, 'Run': i, 'Num_steps': np.nan, 'Coverage': np.nan, 'Scene_Area': area}, 
-			#		ignore_index=True)
 
-		percent_list = np.array(percent_list)
-		print(f'percent_list = {percent_list}')
-		avg_percent = np.sum(percent_list) / percent_list.shape[0]
+			print(f'scene_name = {scene_name}, eps = {eps_id}, Success = {metrics_success}, SPL = {metrics_spl}')
+		except:
+			print(f'scene_name = {scene_name}, eps = {eps_id} metrics not available')
 
-		step_list = np.array(step_list)
-		print(f'step_list = {step_list}')
-		avg_step = np.sum(step_list) / step_list.shape[0]
-
-		print(f'scene_name = {scene_name}, avg_percent = {avg_percent}, avg_step = {avg_step}')
-
-		if avg_percent > 0:
-			avg_percent_list.append(avg_percent)
-			avg_step_list.append(avg_step)
-	except:
-		print(f'failed to process scene {scene_name}.')
 
 print('=========================================================================================')
-avg_percent_list = np.array(avg_percent_list)
-avg_step_list = np.array(avg_step_list)
-print(f'avg percent = {np.mean(avg_percent_list)}, avg step = {np.mean(avg_step_list)}')
-
 
 #=================================== write df to html ======================================
 html = df.to_html()
@@ -84,40 +49,26 @@ html_f.write(html)
 
 #==================================== clean up df ===========================
 df2 = df.dropna()
-# ignore coverage lower than 0.2
-filt = df2['Coverage'] >= thresh_percent
-df2 = df2[filt]
+
 
 #============================= compute data by scene ===============================
 scene_grp = df2.groupby(['Scene'])
-scene_step = scene_grp['Num_steps'].mean()
-scene_cov = scene_grp['Coverage'].mean()
+scene_success = scene_grp['Success'].mean()
+scene_spl = scene_grp['SPL'].mean()
+scene_softspl = scene_grp['SoftSPL'].mean()
 
-scene_info = pd.concat([scene_step, scene_cov], axis='columns', sort=False)
-scene_info.rename(columns={'Num_steps': 'Avg_Num_steps', 'Coverage': 'Avg_Coverage'}, inplace=True)
+scene_info = pd.concat([scene_success, scene_spl, scene_softspl], axis='columns', sort=False)
 
 #================================ write df to html ==========================================
 html = scene_info.to_html()
 html_f.write(f'<h5>Description by each scene</h5>')
 html_f.write(html)
-#html_f.close()
 
 
-
-#=========================== group results by area size ===================================
-df2['Area_Type'] = 'small'
-df2.loc[df2['Scene_Area'] > 200, 'Area_Type'] = 'medium'
-df2.loc[df2['Scene_Area'] > 500, 'Area_Type'] = 'large'
-
-scene_grp = df2.groupby(['Area_Type'])
-scene_step = scene_grp['Num_steps'].mean()
-scene_cov = scene_grp['Coverage'].mean()
-
-scene_info = pd.concat([scene_step, scene_cov], axis='columns', sort=False)
-scene_info.rename(columns={'Num_steps': 'Avg_Num_steps', 'Coverage': 'Avg_Coverage'}, inplace=True)
-
-#================================ write df to html ==========================================
-html = scene_info.to_html()
-html_f.write(f'<h5>Description by the area</h5>')
+df3 = df2[['Success', 'SPL', 'SoftSPL']].mean()
+html = df3.to_frame('mean').to_html()
+html_f.write(f'<h5>Mean over all episodes</h5>')
 html_f.write(html)
+
 html_f.close()
+
