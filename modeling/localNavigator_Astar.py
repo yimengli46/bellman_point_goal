@@ -70,8 +70,17 @@ class localNav_Astar:
 		labels, nb = scipy.ndimage.label(binary_occupancy_map, structure=np.ones((3,3)))
 		agent_label = labels[agent_coords[1], agent_coords[0]]
 		
-		goal_label = labels[goal_coords[1], goal_coords[0]]
-		return goal_label == agent_label
+		flag_goal_reachable = False
+		H, W = labels.shape
+		goal_x, goal_y = goal_coords[0], goal_coords[1]
+		# the success metric is 0.2m. the cell_size is 0.05m, so the cell from the center
+		# to the boundary is 4 cells.
+		for r in range(-4, 5):
+			for c in range(-4, 5):
+				current_x, current_y = goal_x + c, goal_y + r
+				current_label = labels[current_y, current_x]
+				flag_goal_reachable = flag_goal_reachable or current_label
+		return flag_goal_reachable
 
 	def filter_unreachable_frontiers(self, frontiers, agent_pose,
 									 occupancy_map):
