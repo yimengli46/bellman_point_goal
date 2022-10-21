@@ -78,8 +78,11 @@ class localNav_Astar:
 		for r in range(-4, 5):
 			for c in range(-4, 5):
 				current_x, current_y = goal_x + c, goal_y + r
-				current_label = labels[current_y, current_x]
-				flag_goal_reachable = flag_goal_reachable or current_label
+				if current_x >= 0 and current_x < W and current_y >= 0 and current_y < H:
+					current_label = labels[current_y, current_x]
+					current_flag = (current_label == agent_label)
+					flag_goal_reachable = flag_goal_reachable or current_flag
+
 		return flag_goal_reachable
 
 	def filter_unreachable_frontiers(self, frontiers, agent_pose,
