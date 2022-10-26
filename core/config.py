@@ -159,8 +159,10 @@ _C.PRED.PARTIAL_MAP.multiprocessing = 'mp' # 'single', 'mp', 'mpi4py'
 _C.PRED.PARTIAL_MAP.GEN_SAMPLES_SAVED_FOLDER = 'output/model_weights_UNet_input_partial_map'
 # coverage of the local map
 _C.PRED.PARTIAL_MAP.OUTPUT_MAP_SIZE = 24.0 # meters
+# saving gap probability (0.5 means saving once every two chances)
+_C.PRED.PARTIAL_MAP.SAVING_GAP_PROB = 0.5
 
-#========================= input partial map===============
+#========================= input partial view ===============
 _C.PRED.VIEW = CN()
 # devide the real area by a constant
 _C.PRED.VIEW.DIVIDE_AREA = 1000 

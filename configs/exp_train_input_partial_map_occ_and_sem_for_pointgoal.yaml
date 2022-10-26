@@ -5,10 +5,11 @@ NAVI:
   NUM_STEPS: 500
   GT_OCC_MAP_TYPE: 'NAV_MESH'
   HFOV: 90
-  PERCEPTION: Potential
-  STRATEGY: Greedy
+  PERCEPTION: 'Potential'
+  STRATEGY: 'Optimistic'
   D_type: 'Skeleton'
   FLAG_VISUALIZE_MIDDLE_TRAJ: False
+  FLAG_VISUALIZE_FRONTIER_POTENTIAL: False
   NUM_STEPS_EXPLORE: 1
 
 PRED:
@@ -35,6 +36,7 @@ PRED:
     NUM_PROCESS: 8
     multiprocessing: 'mp'
     GEN_SAMPLES_SAVED_FOLDER: 'output/training_data_input_partial_map_for_pointgoal_5000samples'
+    SAVING_GAP_PROB: 0.9
 
 
 SAVE:

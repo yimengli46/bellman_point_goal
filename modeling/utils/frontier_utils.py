@@ -225,10 +225,9 @@ class Frontier(object):
 		# Compute and cache the hash
 		self.hash = hash(self.points.tobytes())
 
-		self.R = 1
-		self.D = 1.
-		self.Din = 1.
-		self.Dout = 1.
+		self.P_S = 1.
+		self.R_S = 0.
+		self.R_E = 0.
 
 	@property
 	def centroid(self):
@@ -360,12 +359,14 @@ def update_frontier_set(old_set, new_set, max_dist=6, chosen_frontier=None):
 			nearest_frontier, nearest_frontier_dist = _get_nearest_feasible_frontier(af, outgoing_frontier_set)
 			#print(f'nearest_frontier_dist = {nearest_frontier_dist}')
 			if nearest_frontier_dist < max_dist:
+				'''
 				# this frontier R and D is not computed correctly
 				if af.R < 1.1 and af.D < 1.1:
 					af.R = nearest_frontier.R
 					af.D = nearest_frontier.D
 					af.Din = nearest_frontier.Din 
-					af.Dout = nearest_frontier.Dout 
+					af.Dout = nearest_frontier.Dout
+				'''
 
 				if nearest_frontier == chosen_frontier:
 					af.is_from_last_chosen = True 
@@ -381,46 +382,6 @@ def update_frontier_set(old_set, new_set, max_dist=6, chosen_frontier=None):
 	old_set.update(added_frontier_set)
 
 	return old_set
-
-def update_frontier_set_data_gen(old_set, new_set, max_dist=6, chosen_frontier=None):
-	for frontier in old_set:
-		frontier.is_from_last_chosen = False 
-
-	# shallow copy of the set
-	old_set = old_set.copy()
-
-	# These are the frontiers that will not appear in the new set
-	outgoing_frontier_set = old_set - new_set
-	# These will appear in the new set
-	added_frontier_set = new_set - old_set
-
-	if max_dist is not None:
-		# loop through the newly added frontier set and set properties based upon the outgoing frontier set
-		for af in added_frontier_set:
-			nearest_frontier, nearest_frontier_dist = _get_nearest_feasible_frontier(af, outgoing_frontier_set)
-			#print(f'nearest_frontier_dist = {nearest_frontier_dist}')
-			if nearest_frontier_dist < max_dist:
-				# this frontier R and D is not computed correctly
-				if af.R < 1.1 and af.D < 1.1:
-					af.R = nearest_frontier.R
-					af.D = nearest_frontier.D
-					af.Din = nearest_frontier.Din 
-					af.Dout = nearest_frontier.Dout 
-
-				if nearest_frontier == chosen_frontier:
-					af.is_from_last_chosen = True 
-
-	if len(added_frontier_set) == 0:
-		print(f'*** corner case, no new frontier.')
-		chosen_frontier.is_from_last_chosen = True
-
-	# Remove frontier_set that don't appear in the new set
-	old_set.difference_update(outgoing_frontier_set)
-
-	# Add the new frontier_set
-	old_set.update(added_frontier_set)
-
-	return old_set, added_frontier_set
 
 def inter_local_map_global_map(local_map, global_map, robot_center):
 	H_local, W_local = local_map.shape
@@ -453,9 +414,9 @@ def inter_local_map_global_map(local_map, global_map, robot_center):
 	return np.array((x0_local, y0_local, x1_local, y1_local)), np.array((x0_global, y0_global, x1_global, y1_global))
 
 
-def compute_frontier_potential(frontiers, occupancy_grid, gt_occupancy_grid, observed_area_flag, sem_map, skeleton=None, unet_model=None, device=None, LN=None, agent_map_pose=None):
+def compute_frontier_potential(frontiers, point_goal_coord, dist_occupancy_map, occupancy_grid, gt_occupancy_grid, observed_area_flag, sem_map, skeleton=None, unet_model=None, device=None, LN=None, agent_map_pose=None):
 	# When the perception info is 'Potential', we use gt_occupancy_grid to compute the area of the component.
-	
+
 	# Compute potential
 	if cfg.NAVI.PERCEPTION == 'Potential':
 		free_but_unobserved_flag = np.logical_and(
@@ -467,37 +428,34 @@ def compute_frontier_potential(frontiers, occupancy_grid, gt_occupancy_grid, obs
 
 		for ii in range(nb):
 			component = (labels == (ii + 1))
-			for f in frontiers:
-				if component[int(f.centroid[0]), int(f.centroid[1])]:
-					f.R = np.sum(component)
-					if cfg.NAVI.D_type == 'Sqrt_R':
-						f.D = round(sqrt(f.R), 2)
-						f.Din = f.D
-						f.Dout = f.D
-					elif cfg.NAVI.D_type == 'Skeleton':
-						#try:
-						cost_dall, cost_din, cost_dout, component_G = skeletonize_frontier_graph(component, skeleton)
-						'''
-						except:
-							cost_dall = round(sqrt(f.R), 2)
-							cost_din = cost_dall
-							cost_dout = cost_dall
-						'''
-						f.D = cost_dall
-						f.Din = cost_din
-						f.Dout = cost_dout
+			for fron in frontiers:
+				if component[int(fron.centroid[0]), int(fron.centroid[1])]:
+					# decide if the point goal is reachable
+					if component[point_goal_coord[1], point_goal_coord[0]]:
+						# point goal is reachable from this frontier
+						fron.P_S = 1.
+						_, L = route_through_array(dist_occupancy_map, (point_goal_coord[1], point_goal_coord[0]), 
+							(int(fron.centroid[0]), int(fron.centroid[1])))
+						fron.R_S = L
+						fron.R_E = 0.
+					else:
+						fron.P_S = 0.
+						cost_dall, _, _, component_G = skeletonize_frontier_graph(component, skeleton)
+						fron.R_E = cost_dall
+						fron.R_S = 0.
+					print(f'P_S = {fron.P_S}, R_S = {fron.R_S}, R_E = {fron.R_E}')
 
 					if cfg.NAVI.FLAG_VISUALIZE_FRONTIER_POTENTIAL:
 						fig, ax = plt.subplots(nrows=1,
-											   ncols=3,
+											   ncols=2,
 											   figsize=(12, 5))
-						ax[0].imshow(occupancy_grid)
-						ax[0].scatter(f.points[1],
-									  f.points[0],
-									  c='white',
+						ax[0].imshow(occupancy_grid, cmap='gray')
+						ax[0].scatter(fron.points[1],
+									  fron.points[0],
+									  c='yellow',
 									  zorder=2)
-						ax[0].scatter(f.centroid[1],
-									  f.centroid[0],
+						ax[0].scatter(fron.centroid[1],
+									  fron.centroid[0],
 									  c='red',
 									  zorder=2)
 						ax[0].get_xaxis().set_visible(False)
@@ -505,25 +463,10 @@ def compute_frontier_potential(frontiers, occupancy_grid, gt_occupancy_grid, obs
 						ax[0].set_title('explored occupancy map')
 
 						ax[1].imshow(component)
+						ax[1].scatter(point_goal_coord[0], point_goal_coord[1], marker='*', s=50, c='cyan', zorder=5)
 						ax[1].get_xaxis().set_visible(False)
 						ax[1].get_yaxis().set_visible(False)
 						ax[1].set_title('area potential')
-
-						'''
-						ax[2].imshow(component, cmap='gray')
-						# draw edges by pts
-						for (s,e) in component_G.edges():
-							ps = component_G[s][e]['pts']
-							plt.plot(ps[:,1], ps[:,0], 'green')
-							
-						# draw node by o
-						nodes = component_G.nodes()
-						ps = np.array([nodes[i]['o'] for i in nodes])
-						plt.plot(ps[:,1], ps[:,0], 'r.')
-						ax[2].get_xaxis().set_visible(False)
-						ax[2].get_yaxis().set_visible(False)
-						ax[2].set_title('skeleton')
-						'''
 
 						fig.tight_layout()
 						plt.title(f'component {ii}')
