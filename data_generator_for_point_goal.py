@@ -63,8 +63,7 @@ class Data_Gen_View:
 		
 	def init_scene(self):
 		#============================ get a gpu
-		#self.device_id = gpu_Q.get()
-		self.device_id = 0
+		self.device_id = gpu_Q.get()
 
 		scene_name = self.scene_name
 		print(f'init new scene: {scene_name}')

@@ -27,13 +27,13 @@ PRED:
     INPUT_WH: (480, 480)
     LOSS_TYPE: L1
     NEIGHBOR_SIZE: 40
-    NUM_GENERATED_SAMPLES_PER_SCENE: 100
+    NUM_GENERATED_SAMPLES_PER_SCENE: 1000
     NUM_WORKERS: 2
     RESUME: ''
     SAVED_FOLDER: 'output/model_weights_UNet_input_partial_map_for_pointgoal'
     STEP_GAP: 5
     LR: 1e-3
-    NUM_PROCESS: 8
+    NUM_PROCESS: 10
     multiprocessing: 'mp'
     GEN_SAMPLES_SAVED_FOLDER: 'output/training_data_input_partial_map_for_pointgoal_5000samples'
     SAVING_GAP_PROB: 0.9
