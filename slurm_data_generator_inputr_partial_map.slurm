@@ -1,8 +1,8 @@
 #!/bin/sh
 
 ## Give your job a name to distinguish it from other jobs you run.
-#SBATCH --job-name=gen_val
-## SBATCH --job-name=gen_train
+## SBATCH --job-name=gen_val
+#SBATCH --job-name=gen_train
 
 #SBATCH --reservation=yli44_43
 
@@ -25,9 +25,9 @@
 
 ## Specify how much time your job needs. (default: see partition above)
 #SBATCH --time=5-00:00   # Total time needed for job: Days-Hours:Minutes
-#SBATCH --gres=gpu:2
-#SBATCH --nodelist=NODE079
-#SBATCH --cpus-per-task 11
+#SBATCH --gres=gpu:4
+#SBATCH --nodelist=NODE078
+#SBATCH --cpus-per-task 22
 
 ## Load the relevant modules needed for the job
 module load cuda/11.2
