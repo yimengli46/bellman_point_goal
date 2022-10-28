@@ -5,6 +5,9 @@ import json
 import matplotlib.pyplot as plt
 import math
 import glob
+from modeling.utils.baseline_utils import read_occ_map_npy, pose_to_coords
+from modeling.localNavigator_Astar import localNav_Astar
+import scipy.ndimage
 
 split = 'train'
 scene_floor_folder = 'output/scene_height_distribution'
@@ -25,7 +28,20 @@ for filename in filenames:
 		data = json.loads(f.read())
 		episodes = data['episodes']
 
-		scene_y = scene_floor_dict[filename[:-8]][0]['y']
+		env_scene = filename[:-8]
+		scene_name = f'{env_scene}_0'
+		scene_y = scene_floor_dict[env_scene][0]['y']
+
+		#============================================================================
+		occ_map_npy = np.load(f'output/semantic_map/{split}/{scene_name}/BEV_occupancy_map.npy', allow_pickle=True).item()
+		gt_occ_map, pose_range, coords_range, WH = read_occ_map_npy(occ_map_npy)
+		H, W = gt_occ_map.shape[:2]
+		LN = localNav_Astar(pose_range, coords_range, WH, scene_name)
+
+		binary_occupancy_map = gt_occ_map.copy()
+		labels, nb = scipy.ndimage.label(binary_occupancy_map, structure=np.ones((3,3)))
+
+		#==============================================================================
 		count_epi = 0
 		list_episodes = []
 
@@ -40,8 +56,25 @@ for filename in filenames:
 			start_pose_y = episode['start_position'][1]
 
 			if abs(start_pose_y - scene_y) <= gap_thresh:
-				count_epi += 1
-				list_episodes.append(episode)
+				start_position = episode['start_position']
+				goal_position = episode['goals'][0]['position']
+				#===================================== setup the start location ===============================#
+				start_pose = np.array([start_position[0], start_pose_y, start_position[2]])  
+				goal_pose = np.array([goal_position[0], start_pose_y, goal_position[2]])
+				start_coord = pose_to_coords((start_pose[0], -start_pose[1]), pose_range, coords_range, WH)
+				goal_coord = pose_to_coords((goal_pose[0], -goal_pose[1]), pose_range, coords_range, WH)
+
+				if start_coord[0] >= 0 and start_coord[0] < W and start_coord[1] >= 0 and start_coord[1] < H and goal_coord[0] >= 0 and goal_coord[0] < W and goal_coord[1] >= 0 and goal_coord[1] < H:
+
+					if binary_occupancy_map[start_coord[1], start_coord[0]] > 0:
+						start_label = labels[start_coord[1], start_coord[0]]
+						goal_label = labels[goal_coord[1], goal_coord[0]]
+
+						flag_goal_reachable = (start_label == goal_label)
+
+						if flag_goal_reachable:
+							count_epi += 1
+							list_episodes.append(episode)
 
 		print(f'sum(episodes) = {len(episodes)}, count_epi = {count_epi}')
 

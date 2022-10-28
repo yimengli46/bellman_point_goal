@@ -14,8 +14,7 @@ from core import cfg
 from itertools import islice
 
 #======================================================================================
-#cfg.merge_from_file('configs/exp_train_input_partial_map_occ_and_sem.yaml')
-cfg.merge_from_file('configs/exp_train_input_partial_map_occ_only.yaml')
+cfg.merge_from_file('configs/exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml')
 cfg.freeze()
 
 output_folder = cfg.PRED.PARTIAL_MAP.SAVED_FOLDER

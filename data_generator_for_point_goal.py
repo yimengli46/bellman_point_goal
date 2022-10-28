@@ -123,26 +123,25 @@ class Data_Gen_View:
 		
 	def write_to_file(self, num_samples=100):
 		count_sample = 0
-		#=========================== process each episode
-		#for idx_epi in range(num_samples):
-		while True:
-			#print(f'idx_epi = {idx_epi}')
-			while True:
-				episode = self.random.choices(self.episodes_list, k=1)[0]
-				start_position = episode['start_position']
-				goal_position = episode['goals'][0]['position']
-				phi = compute_phi_from_quaternion(episode['start_rotation'])
-				
-				#===================================== setup the start location ===============================#
-				start_pose = np.array([start_position[0], self.height,
-									  start_position[2]])  
-				goal_pose = np.array([goal_position[0], self.height, goal_position[2]])
-				goal_coord = pose_to_coords((goal_pose[0], -goal_pose[1]), self.pose_range, self.coords_range, self.WH)
-				# check if the start point is navigable
-				if (not self.env.is_navigable(start_pose)) or (not self.env.is_navigable(goal_pose)):
-					print(f'start pose or goal pose is not navigable ...')
-				else:
-					break
+		#=========================== process each episode ======================
+		for idx_epi in range(len(self.episodes_list)):
+			print(f'idx_epi = {idx_epi}')
+			
+			#episode = self.random.choices(self.episodes_list, k=1)[0]
+			episode = self.episodes_list[idx_epi]
+			start_position = episode['start_position']
+			goal_position = episode['goals'][0]['position']
+			phi = compute_phi_from_quaternion(episode['start_rotation'])
+			
+			#===================================== setup the start location ===============================#
+			start_pose = np.array([start_position[0], self.height,
+								  start_position[2]])  
+			goal_pose = np.array([goal_position[0], self.height, goal_position[2]])
+			goal_coord = pose_to_coords((goal_pose[0], -goal_pose[1]), self.pose_range, self.coords_range, self.WH)
+			# check if the start point is navigable
+			if (not self.env.is_navigable(start_pose)) or (not self.env.is_navigable(goal_pose)):
+				print(f'start pose or goal pose is not navigable ...')
+				continue
 
 			try:
 				#=====================================start exploration ===============================
@@ -530,6 +529,11 @@ class Data_Gen_View:
 			except:
 				print(f'*****run into an error ...')
 
+		self.env.close()
+		#================================ release the gpu============================
+		gpu_Q.put(self.device_id)
+		return
+
 #'''
 def multi_run_wrapper(args):
 	""" wrapper for multiprocessor """
@@ -609,8 +613,8 @@ SEED = cfg.GENERAL.RANDOM_SEED
 random.seed(SEED)
 np.random.seed(SEED)
 
-scene_name = '17DRP5sb8fy_0'
-split = 'train'
+scene_name = 'TbHJrupSAjP_0'
+split = 'val'
 
 output_folder = cfg.PRED.PARTIAL_MAP.GEN_SAMPLES_SAVED_FOLDER
 if not os.path.exists(output_folder):

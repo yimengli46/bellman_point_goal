@@ -1,5 +1,5 @@
 MAIN:
-  SPLIT: 'train'
+  SPLIT: 'val'
 
 NAVI:
   NUM_STEPS: 500
@@ -22,18 +22,18 @@ PRED:
     EVAL_INTERVAL: 1
     FLAG_VISUALIZE_PRED_LABELS: False
     INPUT: occ_and_sem
-    INPUT_CHANNEL: 45 # 42 + 3
+    INPUT_CHANNEL: 47 # 42 + 3 + 2
     OUTPUT_CHANNEL: 4
     INPUT_WH: (480, 480)
     LOSS_TYPE: L1
     NEIGHBOR_SIZE: 40
-    NUM_GENERATED_SAMPLES_PER_SCENE: 5000
+    NUM_GENERATED_SAMPLES_PER_SCENE: 1000
     NUM_WORKERS: 2
     RESUME: ''
     SAVED_FOLDER: 'output/model_weights_UNet_input_partial_map_for_pointgoal'
     STEP_GAP: 5
     LR: 1e-3
-    NUM_PROCESS: 20
+    NUM_PROCESS: 12
     multiprocessing: 'mp'
     GEN_SAMPLES_SAVED_FOLDER: 'output/training_data_input_partial_map_for_pointgoal_5000samples'
     SAVING_GAP_PROB: 0.8
