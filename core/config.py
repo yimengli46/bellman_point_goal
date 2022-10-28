@@ -161,6 +161,8 @@ _C.PRED.PARTIAL_MAP.GEN_SAMPLES_SAVED_FOLDER = 'output/model_weights_UNet_input_
 _C.PRED.PARTIAL_MAP.OUTPUT_MAP_SIZE = 24.0 # meters
 # saving gap probability (0.5 means saving once every two chances)
 _C.PRED.PARTIAL_MAP.SAVING_GAP_PROB = 0.5
+# weight for the RS RE loss
+_C.PRED.PARTIAL_MAP.LAMBDA_RS_RE = 0.01
 
 #========================= input partial view ===============
 _C.PRED.VIEW = CN()

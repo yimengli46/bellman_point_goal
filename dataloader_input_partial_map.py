@@ -180,23 +180,23 @@ def my_collate(batch):
 
 	return output_dict
 
-#if __name__ == "__main__":
-cfg.merge_from_file('configs/exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml')
-cfg.freeze()
+if __name__ == "__main__":
+	cfg.merge_from_file('configs/exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml')
+	cfg.freeze()
 
-split = 'train'
-if split == 'train':
-	scene_list = cfg.MAIN.TRAIN_SCENE_LIST
-elif split == 'val':
-	scene_list = cfg.MAIN.VAL_SCENE_LIST
-elif split == 'test':
-	scene_list = cfg.MAIN.TEST_SCENE_LIST
+	split = 'train'
+	if split == 'train':
+		scene_list = cfg.MAIN.TRAIN_SCENE_LIST
+	elif split == 'val':
+		scene_list = cfg.MAIN.VAL_SCENE_LIST
+	elif split == 'test':
+		scene_list = cfg.MAIN.TEST_SCENE_LIST
 
-data_folder = cfg.PRED.PARTIAL_MAP.GEN_SAMPLES_SAVED_FOLDER
+	data_folder = cfg.PRED.PARTIAL_MAP.GEN_SAMPLES_SAVED_FOLDER
 
-ds_list = []
-for scene in scene_list:
-	scene_ds = MP3DSceneDataset(split, scene, data_folder=data_folder)
-	ds_list.append(scene_ds)
+	ds_list = []
+	for scene in scene_list:
+		scene_ds = MP3DSceneDataset(split, scene, data_folder=data_folder)
+		ds_list.append(scene_ds)
 
-concat_ds = data.ConcatDataset(ds_list)
+	concat_ds = data.ConcatDataset(ds_list)

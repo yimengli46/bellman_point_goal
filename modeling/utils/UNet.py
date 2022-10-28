@@ -37,9 +37,9 @@ class UNet(nn.Module):
         self.conv_original_size1 = convrelu(64, 64, 3, 1)
         self.conv_original_size2 = convrelu(64 + 128, 64, 3, 1)
 
-        self.conv_last = nn.Conv2d(64, n_class_out, 1)
-
-        #self.activation = nn.Sigmoid()
+        self.conv_PS = nn.Conv2d(64, 1, 1)
+        self.conv_RS_RE = nn.Conv2d(64, 2, 1)
+        self.activation = nn.Sigmoid()
 
     def forward(self, input):
         B, C, cH, cW = input.shape
@@ -74,8 +74,11 @@ class UNet(nn.Module):
         x = torch.cat([x, x_original], dim=1)
         x = self.conv_original_size2(x)
 
-        out = self.conv_last(x)
-
-        #out = self.activation(x)
-
+        out_PS = self.conv_PS(x)
+        out_PS = self.activation(out_PS)
+        #print(f'out_PS.shape = {out_PS.shape}')
+        out_RS_RE = self.conv_RS_RE(x)
+        #print(f'out_RS_RE.shape = {out_RS_RE.shape}')
+        out = torch.cat((out_PS, out_RS_RE), dim=1)
+        #print(f'out.shape = {out.shape}')
         return out

@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 from core import cfg
 from itertools import islice
+import torch.nn.functional as F
 
 #======================================================================================
 cfg.merge_from_file('configs/exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml')
@@ -26,18 +27,6 @@ saver = Saver(output_folder)
 cfg.dump(stream=open(f'{saver.experiment_dir}/experiment_config.yaml', 'w'))
 
 #==========================================================================================
-
-def MSELoss(logit, target):
-	mask_zero = (target > 0)
-	logit = logit * mask_zero
-	num_nonzero = torch.sum(mask_zero) + 1.
-	#print(f'num_nonzero = {num_nonzero}')
-
-	#result = loss(logit, target)
-	result = ((logit - target)**2).sum() / num_nonzero
-
-	return result
-
 def L1Loss(logit, target):
 	mask_zero = (target > 0)
 	logit = logit * mask_zero
@@ -48,6 +37,38 @@ def L1Loss(logit, target):
 	result = (torch.abs(logit - target)).sum() / num_nonzero
 
 	return result
+
+def UNet_Loss(logit, mask, target):
+	B, C, H, W = logit.shape
+	#=========== split input into three channels 
+	logit_PS = logit[:, 0].unsqueeze(1)
+	#print(f'logit_PS.shape = {logit_PS.shape}')
+	logit_RS_RE = logit[:, 1:]
+	#print(f'logit_RS_RE.shape = {logit_RS_RE.shape}')
+	#================ mask out pixels
+	mask_PS = mask[:, 0].unsqueeze(1)
+	mask_RS_RE = mask[:, 1:]
+	#print(f'mask_PS.shape = {mask_PS.shape}')
+	#print(f'mask_RS_RE.shape = {mask_RS_RE.shape}')
+	logit_PS = logit_PS * mask_PS
+	logit_RS_RE = logit_RS_RE * mask_RS_RE
+	#print(f'logit_PS.shape = {logit_PS.shape}')
+	#print(f'logit_RS_RE.shape = {logit_RS_RE.shape}')
+
+	#=============== compute loss separately
+	num_nonzero_PS = torch.sum(mask_PS) + 1.
+	num_nonzero_RS_RE = torch.sum(mask_RS_RE) + 1.
+
+	target_PS = target[:, 0].unsqueeze(1)
+	target_RS_RE = target[:, 1:]
+	#print(f'target_PS.shape = {target_PS.shape}')
+	#print(f'target_RS_RE.shape = {target_RS_RE.shape}')
+
+	loss_PS = F.binary_cross_entropy(logit_PS, target_PS, reduction='sum') / num_nonzero_PS
+	loss_RS_RE = F.l1_loss(logit_RS_RE, target_RS_RE, reduction='sum') / num_nonzero_RS_RE
+
+	#loss = loss_PS + loss_RS_RE
+	return loss_PS, loss_RS_RE
 
 #============================================ Define Tensorboard Summary =================================
 summary = TensorboardSummary(saver.experiment_dir)
@@ -86,8 +107,9 @@ scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
 # Define Criterion
 # whether to use class balanced weights
 weight = None
-criterion = L1Loss
+criterion = UNet_Loss
 best_test_loss = 1e10
+lambda_RS_RE = cfg.PRED.PARTIAL_MAP.LAMBDA_RS_RE
 
 #===================================================== Resuming checkpoint ====================================================
 best_pred = 0.0
@@ -107,31 +129,36 @@ for epoch in range(cfg.PRED.PARTIAL_MAP.EPOCHS):
 	iter_num = 0
 	
 	for batch in dataloader_train:
-		print('epoch = {}, iter_num = {}'.format(epoch, iter_num))
-		images, targets = batch['input'], batch['output']
-		#print('images = {}'.format(images.shape))
-		#print('targets = {}'.format(targets.shape))
-		#assert 1==2
-		images, targets = images.cuda(), targets.cuda()
+		print(f'epoch = {epoch}, iter_num = {iter_num}'.format(epoch, iter_num))
+		images, masks, targets = batch['input'], batch['mask'], batch['output']
+		#print('images = {}'.format(images.shape))   # (B, 47, 480, 480)
+		#print('masks = {}'.format(masks.shape))     # (B, 3,  480, 480)
+		#print('targets = {}'.format(targets.shape)) # (B, 3,  480, 480)
+		
+		images, masks, targets = images.cuda(), masks.cuda(), targets.cuda()
 		
 		#================================================ compute loss =============================================
-		output = model(images) # batchsize x 1 x H x W
-		#print(f'output.shape = {output.shape}')
-		loss = criterion(output, targets)
+		output = model(images) # B x 3 x H x W
 
+		#print(f'output.shape = {output.shape}')
+		loss_PS, loss_RS_RE = criterion(output, masks, targets)
+		loss = loss_PS + lambda_RS_RE * loss_RS_RE
+		
 		#================================================= compute gradient =================================================
 		optimizer.zero_grad()
 		loss.backward()
 		optimizer.step()
 		train_loss += loss.item()
-		print('Train loss: %.3f' % (train_loss / (iter_num + 1)))
-		writer.add_scalar('train/total_loss_iter', loss.item(), iter_num + len(dataloader_train) * epoch)
+		print(f'loss = {loss.item():.2f}, loss_PS = {loss_PS.item():.2f}, loss_RS_RE = {loss_RS_RE.item():.2f}')
+		writer.add_scalars('train/total_loss_iter', {'PS_loss': loss_PS.item(),
+													 'RS_RE_loss': lambda_RS_RE * loss_RS_RE.item(),
+													 'total_loss':loss.item()}, iter_num + len(dataloader_train) * epoch)
 
 		iter_num += 1
 
 	writer.add_scalar('train/total_loss_epoch', train_loss, epoch)
-	print('[Epoch: %d, numImages: %5d]' % (epoch, iter_num * cfg.PRED.PARTIAL_MAP.BATCH_SIZE))
-	print('Loss: %.3f' % train_loss)
+	print(f'[Epoch: {epoch}, numImages: {iter_num * cfg.PRED.PARTIAL_MAP.BATCH_SIZE}]')
+	print(f'Loss: {train_loss:.2f}')
 
 #======================================================== evaluation stage =====================================================
 
@@ -141,28 +168,31 @@ for epoch in range(cfg.PRED.PARTIAL_MAP.EPOCHS):
 		iter_num = 0
 
 		for batch in dataloader_val:
-			print('epoch = {}, iter_num = {}'.format(epoch, iter_num))
-			images, targets = batch['input'], batch['output']
+			print(f'epoch = {epoch}, iter_num = {iter_num}'.format(epoch, iter_num))
+			images, masks, targets = batch['input'], batch['mask'], batch['output']
 			#print('images = {}'.format(images))
 			#print('targets = {}'.format(targets))
-			images, targets = images.cuda(), targets.cuda()
+			images, masks, targets = images.cuda(), masks.cuda(), targets.cuda()
 
 			#========================== compute loss =====================
 			with torch.no_grad():
 				output = model(images)
-			loss = criterion(output, targets)
+			loss_PS, loss_RS_RE = criterion(output, masks, targets)
+			loss = loss_PS + lambda_RS_RE * loss_RS_RE
 
 			test_loss += loss.item()
-			print('Test loss: %.3f' % (test_loss / (iter_num + 1)))
-			writer.add_scalar('val/total_loss_iter', loss.item(), iter_num + len(dataloader_val) * epoch)
+			print(f'loss = {loss.item():.2f}, loss_PS = {loss_PS.item():.2f}, loss_RS_RE = {loss_RS_RE.item():.2f}')
+			writer.add_scalars('val/total_loss_iter', {'PS_loss': loss_PS.item(),
+											 'RS_RE_loss': lambda_RS_RE * loss_RS_RE.item(),
+											 'total_loss':loss.item()}, iter_num + len(dataloader_val) * epoch)
 
 			iter_num += 1
 
 		# Fast test during the training
 		writer.add_scalar('val/total_loss_epoch', test_loss, epoch)
 		print('Validation:')
-		print('[Epoch: %d, numImages: %5d]' % (epoch, iter_num * cfg.PRED.PARTIAL_MAP.BATCH_SIZE))
-		print('Loss: %.3f' % test_loss)
+		print(f'[Epoch: {epoch}, numImages: {iter_num * cfg.PRED.PARTIAL_MAP.BATCH_SIZE}]')
+		print(f'Loss: {test_loss:.2f}')
 
 		saver.save_checkpoint({
 				'epoch': epoch + 1,
