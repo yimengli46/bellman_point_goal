@@ -594,17 +594,34 @@ def nearest_value_og(occupancy_grid, i, j, threshold=4):
 	return occupancy_grid[i][j]
 
 
-def get_frontier_nearest_to_goal(frontiers, goal_pose, LN):
+def get_frontier_nearest_to_goal(agent_pose, frontiers, goal_coord, LN, occupancy_map):
 	""" select frontier nearest to the point goal
 	used for the 'Optmistic' strategy.
 	"""
-	goal_map_pose = (goal_pose[0], -goal_pose[1])
+	agent_coord = LN.get_agent_coords(agent_pose)
+
+	binary_occupancy_map = occupancy_map.copy()
+	#plt.imshow(binary_occupancy_map)
+	#plt.show()
+	binary_occupancy_map[binary_occupancy_map == cfg.FE.UNOBSERVED_VAL] = cfg.FE.FREE_VAL
+	binary_occupancy_map[binary_occupancy_map == cfg.FE.COLLISION_VAL] = 0
+	binary_occupancy_map[binary_occupancy_map != 0] = 1
+	binary_occupancy_map[binary_occupancy_map == 0] = 1000
+
+	#plt.imshow(binary_occupancy_map)
+	#plt.show()
 
 	min_dist = 1e10
 	min_fron = None
 	for fron in frontiers:
-		fron_centroid_map_pose = LN.convert_coord_to_pose((int(fron.centroid[1]), int(fron.centroid[0])))
-		dist = _eucl_dist(fron_centroid_map_pose, goal_map_pose)
+		# compute dist from the agent to the frontier
+		_, L_agent2fron = route_through_array(binary_occupancy_map, (agent_coord[1], agent_coord[0]), 
+			(int(fron.centroid[0]), int(fron.centroid[1])))
+		# compute dist from the frontier to the point goal
+		_, L_fron2goal = route_through_array(binary_occupancy_map, (int(fron.centroid[0]), int(fron.centroid[1])), 
+			(goal_coord[1], goal_coord[0]))
+
+		dist = L_agent2fron + L_fron2goal 
 
 		if dist < min_dist:
 			min_dist = dist 

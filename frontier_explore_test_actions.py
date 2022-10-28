@@ -23,9 +23,9 @@ import torch
 from collections import OrderedDict
 
 split = 'test' #'test' #'train'
-env_scene = 'WYY7iVyf5p8' #'17DRP5sb8fy' #'yqstnuAEVhm'
+env_scene = 'yqstnuAEVhm' #'17DRP5sb8fy' #'yqstnuAEVhm'
 floor_id = 0
-scene_name = 'WYY7iVyf5p8_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
+scene_name = 'yqstnuAEVhm_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
 scene_floor_dict = np.load(f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy', allow_pickle=True).item()
 
@@ -189,7 +189,7 @@ while step < cfg.NAVI.NUM_STEPS:
 			print(f'update frontiers time = {t6 - t5}')
 
 			if cfg.NAVI.STRATEGY == 'Optimistic':
-				chosen_frontier = fr_utils.get_frontier_nearest_to_goal(frontiers, goal_pose, LN)
+				chosen_frontier = fr_utils.get_frontier_nearest_to_goal(agent_map_pose, frontiers, goal_coord, LN, observed_occupancy_map)
 			elif cfg.NAVI.STRATEGY == 'DP':
 				top_frontiers = fr_utils.select_top_frontiers(frontiers, top_n=6)
 				chosen_frontier = fr_utils.get_frontier_with_DP(top_frontiers, agent_map_pose, dist_occupancy_map, \
