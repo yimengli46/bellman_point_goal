@@ -29,7 +29,7 @@ scene_name = 'yqstnuAEVhm_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
 scene_floor_dict = np.load(f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy', allow_pickle=True).item()
 
-cfg.merge_from_file('configs/exp_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS.yaml')
+cfg.merge_from_file('configs/exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml')
 cfg.freeze()
 
 act_dict = {-1: 'Done', 0: 'stop', 1: 'forward', 2: 'left', 3:'right'}
@@ -60,7 +60,7 @@ ins2cat_dict = {int(obj.id.split("_")[-1]): obj.category.index() for obj in scen
 np.random.seed(cfg.GENERAL.RANDOM_SEED)
 random.seed(cfg.GENERAL.RANDOM_SEED)
 
-if cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
+if True: #cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
 	occ_map_npy = np.load(f'output/semantic_map/{split}/{scene_name}/BEV_occupancy_map.npy', allow_pickle=True).item()
 gt_occ_map, pose_range, coords_range, WH = read_occ_map_npy(occ_map_npy)
 H, W = gt_occ_map.shape[:2]

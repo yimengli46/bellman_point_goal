@@ -61,7 +61,7 @@ class SemanticMap:
 
 		#===================================== load gt occupancy map =============================
 		# load occupancy map
-		if cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
+		if True: #cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
 			if cfg.EVAL.SIZE == 'small':
 				occ_map_path = f'output/semantic_map/{self.split}/{self.scene_name}'
 			elif cfg.EVAL.SIZE == 'large':

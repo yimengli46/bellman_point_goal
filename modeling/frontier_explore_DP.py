@@ -44,7 +44,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 	np.random.seed(cfg.GENERAL.RANDOM_SEED)
 	random.seed(cfg.GENERAL.RANDOM_SEED)
 
-	if cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
+	if True: #cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
 		if cfg.EVAL.SIZE == 'small':
 			occ_map_npy = np.load(
 				f'output/semantic_map/{split}/{scene_name}/BEV_occupancy_map.npy',
@@ -180,7 +180,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 						frontiers = fr_utils.update_frontier_set(old_frontiers, frontiers, max_dist=5, chosen_frontier=chosen_frontier)
 
 					if cfg.NAVI.STRATEGY == 'Optimistic':
-						chosen_frontier = fr_utils.get_frontier_nearest_to_goal(frontiers, goal_pose, LN)
+						chosen_frontier = fr_utils.get_frontier_nearest_to_goal(agent_map_pose, frontiers, goal_coord, LN, observed_occupancy_map)
 					elif cfg.NAVI.STRATEGY == 'DP':
 						top_frontiers = fr_utils.select_top_frontiers(frontiers,
 																	  top_n=6)
