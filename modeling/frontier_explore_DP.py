@@ -166,15 +166,14 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 						frontiers, agent_map_pose, observed_occupancy_map)
 
 					if cfg.NAVI.PERCEPTION == 'UNet_Potential':
-						frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
+						frontiers = fr_utils.compute_frontier_potential(frontiers, goal_coord, dist_occupancy_map, 
+							observed_occupancy_map, gt_occupancy_map, 
 							observed_area_flag, built_semantic_map, None, unet_model, device, LN, agent_map_pose)
 					elif cfg.NAVI.PERCEPTION == 'Potential':
 						if cfg.NAVI.D_type == 'Skeleton':
-							frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
+							frontiers = fr_utils.compute_frontier_potential(frontiers, goal_coord, dist_occupancy_map, 
+								observed_occupancy_map, gt_occupancy_map, 
 								observed_area_flag, built_semantic_map, skeleton)
-						else:
-							frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
-								observed_area_flag, built_semantic_map, None)
 
 					if old_frontiers is not None:
 						frontiers = fr_utils.update_frontier_set(old_frontiers, frontiers, max_dist=5, chosen_frontier=chosen_frontier)
@@ -182,10 +181,8 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose, goal_po
 					if cfg.NAVI.STRATEGY == 'Optimistic':
 						chosen_frontier = fr_utils.get_frontier_nearest_to_goal(agent_map_pose, frontiers, goal_coord, LN, observed_occupancy_map)
 					elif cfg.NAVI.STRATEGY == 'DP':
-						top_frontiers = fr_utils.select_top_frontiers(frontiers,
-																	  top_n=6)
-						chosen_frontier = fr_utils.get_frontier_with_DP(top_frontiers, agent_map_pose, dist_occupancy_map, \
-						 cfg.NAVI.NUM_STEPS-step, LN)
+						top_frontiers = fr_utils.select_top_frontiers(frontiers, top_n=8)
+						chosen_frontier = fr_utils.get_frontier_with_DP_accel(top_frontiers, agent_map_pose, dist_occupancy_map, goal_coord, LN)
 
 					subgoal_coords = (int(chosen_frontier.centroid[1]), int(chosen_frontier.centroid[0]))
 

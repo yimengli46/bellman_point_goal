@@ -29,7 +29,7 @@ scene_name = 'yqstnuAEVhm_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
 scene_floor_dict = np.load(f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy', allow_pickle=True).item()
 
-cfg.merge_from_file('configs/exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml')
+cfg.merge_from_file('configs/exp_90degree_DP_NAVMESH_MAP_GT_Potential_1STEP_500STEPS.yaml')
 cfg.freeze()
 
 act_dict = {-1: 'Done', 0: 'stop', 1: 'forward', 2: 'left', 3:'right'}
@@ -171,15 +171,15 @@ while step < cfg.NAVI.NUM_STEPS:
 			t4 = timer()
 			print(f'filter unreachable frontiers time = {t4 - t3}')
 			if cfg.NAVI.PERCEPTION == 'UNet_Potential':
-				frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
+				frontiers = fr_utils.compute_frontier_potential(frontiers, goal_coord, dist_occupancy_map, 
+					observed_occupancy_map, gt_occupancy_map, 
 					observed_area_flag, built_semantic_map, None, unet_model, device, LN, agent_map_pose)
 			elif cfg.NAVI.PERCEPTION == 'Potential':
 				if cfg.NAVI.D_type == 'Skeleton':
-					frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
+					frontiers = fr_utils.compute_frontier_potential(frontiers, goal_coord, dist_occupancy_map, 
+						observed_occupancy_map, gt_occupancy_map, 
 						observed_area_flag, built_semantic_map, skeleton)
-				else:
-					frontiers = fr_utils.compute_frontier_potential(frontiers, observed_occupancy_map, gt_occupancy_map, 
-						observed_area_flag, built_semantic_map, None)
+
 			t5 = timer()
 			print(f'compute frontier potential time = {t5 - t4}')
 
@@ -191,9 +191,8 @@ while step < cfg.NAVI.NUM_STEPS:
 			if cfg.NAVI.STRATEGY == 'Optimistic':
 				chosen_frontier = fr_utils.get_frontier_nearest_to_goal(agent_map_pose, frontiers, goal_coord, LN, observed_occupancy_map)
 			elif cfg.NAVI.STRATEGY == 'DP':
-				top_frontiers = fr_utils.select_top_frontiers(frontiers, top_n=6)
-				chosen_frontier = fr_utils.get_frontier_with_DP(top_frontiers, agent_map_pose, dist_occupancy_map, \
-					cfg.NAVI.NUM_STEPS-step, LN)
+				top_frontiers = fr_utils.select_top_frontiers(frontiers, top_n=8)
+				chosen_frontier = fr_utils.get_frontier_with_DP_accel(top_frontiers, agent_map_pose, dist_occupancy_map, goal_coord, LN)
 
 			t7 = timer()
 			print(f'select frontiers time = {t7 - t6}')
@@ -226,7 +225,7 @@ while step < cfg.NAVI.NUM_STEPS:
 		ax[0].scatter(goal_coord[0], goal_coord[1], marker='*', s=50, c='yellow', zorder=5)
 		ax[0].plot(x_coord_lst, z_coord_lst, lw=5, c='blue', zorder=3)
 		if not MODE_FIND_GOAL:
-			for f in frontiers:
+			for f in top_frontiers:
 				ax[0].scatter(f.points[1], f.points[0], c='green', zorder=2)
 				ax[0].scatter(f.centroid[1], f.centroid[0], c='red', zorder=2)
 			if chosen_frontier is not None:

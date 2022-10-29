@@ -18,6 +18,8 @@ from skimage.graph import MCP_Geometric as MCPG
 from skimage.graph import route_through_array
 import torch.nn.functional as F
 import math
+import lsp_accel
+import itertools
 
 def skeletonize_map(occupancy_grid):
 	skeleton = skeletonize(occupancy_grid)
@@ -443,7 +445,7 @@ def compute_frontier_potential(frontiers, point_goal_coord, dist_occupancy_map, 
 						cost_dall, _, _, component_G = skeletonize_frontier_graph(component, skeleton)
 						fron.R_E = cost_dall
 						fron.R_S = 0.
-					print(f'P_S = {fron.P_S}, R_S = {fron.R_S}, R_E = {fron.R_E}')
+					#print(f'P_S = {fron.P_S}, R_S = {fron.R_S}, R_E = {fron.R_E}')
 
 					if cfg.NAVI.FLAG_VISUALIZE_FRONTIER_POTENTIAL:
 						fig, ax = plt.subplots(nrows=1,
@@ -690,82 +692,54 @@ def count_free_space_at_frontiers(frontiers, gt_occupancy_grid, area=10):
 		#print(f'fron.area_neigh = {fron.area_neigh}')
 
 
-def get_frontier_with_DP(frontiers, agent_pose, dist_occupancy_map, steps, LN):
+def get_frontier_with_DP(frontiers, agent_pose, dist_occupancy_map, LN):
 	""" select the frontier from frontiers with the Bellman Equation.
 
 	from agent_pose and the observed_occupancy_map, compute D and L.
 	"""
-	max_Q = 0
-	max_steps = 0
-	max_frontier = None
-	#G = LN.get_G_from_map(observed_occupancy_map)
+	min_Q = 1e10
+	min_frontier = None
 	agent_coord = LN.get_agent_coords(agent_pose)
 
 	for fron in frontiers:
 		#print('-------------------------------------------------------------')
 		visited_frontiers = set()
-		Q, rest_steps = compute_Q(agent_coord, fron, frontiers, visited_frontiers, steps,
-					  dist_occupancy_map)
-		#print(f'Q = {Q}, rest_steps = {rest_steps}, R_A = {fron.R}')
-		if Q > max_Q:
-			max_Q = Q
-			max_steps = rest_steps
-			max_frontier = fron
-		elif Q == max_Q and rest_steps > max_steps: #hash(fron) > hash(max_frontier):
-			max_Q = Q
-			max_steps = rest_steps
-			max_frontier = fron
-	return max_frontier
+		Q = compute_Q(agent_coord, fron, frontiers, visited_frontiers, dist_occupancy_map)
+		print(f'Q = {Q}, R_S = {fron.R_S}')
+		if Q < min_Q:
+			min_Q = Q
+			min_frontier = fron
+
+	return min_frontier
 
 
-def compute_Q(agent_coord, target_frontier, frontiers, visited_frontiers,
-			  steps, dist_occupancy_map):
+def compute_Q(agent_coord, target_frontier, frontiers, visited_frontiers, dist_occupancy_map):
 	""" compute the Q values of the frontier 'target_frontier'"""
 	#print(f'agent_coord = {agent_coord}, target_frontier = {target_frontier.centroid}, steps = {steps}')
 	Q = 0
 	#L = LN.compute_L(G, agent_coord, target_frontier)
-	_, L = route_through_array(dist_occupancy_map, (agent_coord[1], agent_coord[0]), 
+	_, D = route_through_array(dist_occupancy_map, (agent_coord[1], agent_coord[0]), 
 		(int(target_frontier.centroid[0]), int(target_frontier.centroid[1])))
 	# move forward 5 cells. every move forward is combined with 2 turnings.
-	L = L / 5. * cfg.NAVI.STEP_RATIO
-	D = target_frontier.D / 5. * cfg.NAVI.STEP_RATIO
-	Din = target_frontier.Din / 5. * cfg.NAVI.STEP_RATIO
-	Dout = target_frontier.Dout / 5. * cfg.NAVI.STEP_RATIO
 
-	# cond 1: agent has enough steps to reach target_frontier
-	if steps > L:
-		steps -= L
+	Q += (D / 5. * cfg.NAVI.STEP_RATIO) + (target_frontier.P_S * (target_frontier.R_S / 5. * cfg.NAVI.STEP_RATIO))
 
-		# cond 2: agent does not have enough steps to traverse target_frontier:
-		if steps <= Din:
-			Q += 1. * steps / Din * target_frontier.R
-			steps = 0
-		else:
-			steps -= Din
-			Q += target_frontier.R
-			# cond 3: agent does have enough steps to get out of target_frontier
-			if steps >= Dout:
-				steps -= Dout
-				visited_frontiers.add(target_frontier)
-				rest_frontiers = frontiers - visited_frontiers
+	visited_frontiers.add(target_frontier)
+	rest_frontiers = frontiers - visited_frontiers
 
-				max_next_Q = 0
-				max_rest_steps = 0
-				for fron in rest_frontiers:
-					fron_centroid_coords = (int(target_frontier.centroid[1]),
-											int(target_frontier.centroid[0]))
-					next_Q, rest_steps = compute_Q(fron_centroid_coords, fron, frontiers,
-									   visited_frontiers.copy(), steps.copy(), dist_occupancy_map)
-					if next_Q > max_next_Q:
-						max_next_Q = next_Q
-						max_rest_steps = rest_steps
-					if next_Q == max_next_Q and rest_steps > max_rest_steps:
-						max_next_Q = next_Q
-						max_rest_steps = rest_steps
-				Q += max_next_Q
-				steps = max_rest_steps
+	min_next_Q = 1e10
+	for fron in rest_frontiers:
+		fron_centroid_coords = (int(target_frontier.centroid[1]),
+								int(target_frontier.centroid[0]))
+		next_Q = compute_Q(fron_centroid_coords, fron, frontiers,
+						   visited_frontiers.copy(), dist_occupancy_map)
+		if next_Q < min_next_Q:
+			min_next_Q = next_Q
+	#print(f'min_next_Q = {min_next_Q}')
+	Q += (1 - target_frontier.P_S) * (target_frontier.R_E / 5. * cfg.NAVI.STEP_RATIO + min_next_Q)
+
 	#print(f'Q = {Q}')
-	return Q, steps
+	return Q
 
 
 def select_top_frontiers(frontiers, top_n=5):
@@ -779,12 +753,83 @@ def select_top_frontiers(frontiers, top_n=5):
 
 	lst_frontiers = []
 	for fron in frontiers:
-		lst_frontiers.append((fron, fron.R))
+		lst_frontiers.append((fron, fron.R_E))
 
-	res = sorted(lst_frontiers, key=itemgetter(1), reverse=True)[:top_n]
+	res = sorted(lst_frontiers, key=itemgetter(1), reverse=False)[:top_n]
 
 	new_frontiers = set()
 	for fron, _ in res:
 		new_frontiers.add(fron)
 
 	return new_frontiers
+
+def get_frontier_with_DP_accel(frontiers, agent_pose, dist_occupancy_map, goal_coord, LN):
+	""" select the frontier from frontiers with the Bellman Equation.
+
+	from agent_pose and the observed_occupancy_map, compute D and L.
+	"""
+	agent_coord = LN.get_agent_coords(agent_pose)
+
+	frontiers = list(frontiers)
+
+	#============ create distances
+	goal_distances = {}
+	for fron in frontiers:
+		# compute dist from the frontier to the point goal
+		_, L_fron2goal = route_through_array(dist_occupancy_map, (int(fron.centroid[0]), int(fron.centroid[1])), 
+			(goal_coord[1], goal_coord[0]))
+		goal_distances[fron] = L_fron2goal# / 5. * cfg.NAVI.STEP_RATIO
+
+	robot_distances = {}
+	for fron in frontiers:
+		# compute dist from the robot to the frontier
+		_, L_robot2fron = route_through_array(dist_occupancy_map, (agent_coord[1], agent_coord[0]), 
+			(int(fron.centroid[0]), int(fron.centroid[1])))
+		robot_distances[fron] = L_robot2fron# / 5. * cfg.NAVI.STEP_RATIO
+
+	frontier_distances = {
+		frozenset(pair): route_through_array(dist_occupancy_map, (int(pair[0].centroid[0]), int(pair[0].centroid[1])), 
+		 (int(pair[1].centroid[0]), int(pair[1].centroid[1])))[1]# / 5. * cfg.NAVI.STEP_RATIO
+		for pair in itertools.combinations(frontiers, 2)
+	}
+
+	distances = {
+		'goal': goal_distances,
+		'robot': robot_distances,
+		'frontier': frontier_distances
+	}
+
+	cpp_cost, cpp_ordering = get_lowest_cost_ordering(frontiers, distances)
+	#print(f'len(cpp_ordering) = {len(cpp_ordering)}')
+	return cpp_ordering[0]
+
+
+def get_lowest_cost_ordering(subgoals, distances):
+	if len(subgoals) == 0:
+		return None, None
+
+	h = {
+		s: distances['goal'][s] + distances['robot'][s] +
+		s.P_S * s.R_S +
+		(1 - s.P_S) * s.R_E
+		for s in subgoals
+	}
+	subgoals.sort(reverse=False, key=lambda s: h[s])
+	s_dict = {hash(s): s for s in subgoals}
+	rd_cpp = {hash(s): distances['robot'][s] for s in subgoals}
+	gd_cpp = {hash(s): distances['goal'][s] for s in subgoals}
+	fd_cpp = {(hash(sp[0]), hash(sp[1])): distances['frontier'][frozenset(sp)]
+			  for sp in itertools.permutations(subgoals, 2)}
+	s_cpp = [
+		lsp_accel.FrontierData(s.P_S, s.R_S,
+							   s.R_E, hash(s),
+							   False) #s.is_from_last_chosen) 
+		for s in subgoals
+	]
+
+	cost, ordering = lsp_accel.get_lowest_cost_ordering(
+		s_cpp, rd_cpp, gd_cpp, fd_cpp)
+	#print(f'ordering = {ordering}')
+	ordering = [s_dict[sid] for sid in ordering]
+
+	return cost, ordering

@@ -1,0 +1,24 @@
+
+# Core Requirements
+numpy
+scipy
+scikit-image
+sknw
+shapely==1.6.4
+opencv-python
+pyyaml
+setuptools==59.5.0  # Fixes PyTorch 1.10 issue; resolved in 1.11 (future)
+tensorboard
+pyscreenshot
+pybullet
+
+# Plotting & Data Handling
+matplotlib
+pandas
+
+# Testing & formatting
+pytest
+pytest-timeout
+pytest-html
+flake8
+vulture

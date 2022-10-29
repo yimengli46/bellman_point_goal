@@ -122,6 +122,9 @@ class localNav_Astar:
 		#t5 = timer()
 		#print(f'====> filter frontiers time = {t5 - t4}')
 
+		binary_occupancy_map = occupancy_map.copy()
+		binary_occupancy_map[binary_occupancy_map == cfg.FE.UNOBSERVED_VAL] = cfg.FE.FREE_VAL
+		binary_occupancy_map[binary_occupancy_map == cfg.FE.COLLISION_VAL] = 0
 		binary_occupancy_map[binary_occupancy_map != 0] = 1
 		binary_occupancy_map[binary_occupancy_map == 0] = 1000
 
