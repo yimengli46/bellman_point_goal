@@ -29,7 +29,7 @@ scene_name = 'yqstnuAEVhm_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
 scene_floor_dict = np.load(f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy', allow_pickle=True).item()
 
-cfg.merge_from_file('configs/exp_90degree_DP_NAVMESH_MAP_GT_Potential_1STEP_500STEPS.yaml')
+cfg.merge_from_file('configs/exp_90degree_DP_NAVMESH_MAP_UNet_OCCandSEM_Potential_1STEP_500STEPS.yaml')
 cfg.freeze()
 
 act_dict = {-1: 'Done', 0: 'stop', 1: 'forward', 2: 'left', 3:'right'}
@@ -76,7 +76,7 @@ device = torch.device('cuda:0')
 if cfg.NAVI.PERCEPTION == 'UNet_Potential':
 	unet_model = UNet(n_channel_in=cfg.PRED.PARTIAL_MAP.INPUT_CHANNEL, n_class_out=cfg.PRED.PARTIAL_MAP.OUTPUT_CHANNEL).to(device)
 	if cfg.PRED.PARTIAL_MAP.INPUT == 'occ_and_sem':
-		checkpoint = torch.load(f'{cfg.PRED.PARTIAL_MAP.SAVED_FOLDER}/{cfg.PRED.PARTIAL_MAP.INPUT}/experiment_29/best_checkpoint.pth.tar', map_location=device)
+		checkpoint = torch.load(f'{cfg.PRED.PARTIAL_MAP.SAVED_FOLDER}/{cfg.PRED.PARTIAL_MAP.INPUT}/experiment_1/best_checkpoint.pth.tar', map_location=device)
 	elif cfg.PRED.PARTIAL_MAP.INPUT == 'occ_only':
 		checkpoint = torch.load(f'run/MP3D/unet/experiment_5/checkpoint.pth.tar', map_location=device)
 

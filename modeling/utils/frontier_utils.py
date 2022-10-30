@@ -483,17 +483,33 @@ def compute_frontier_potential(frontiers, point_goal_coord, dist_occupancy_map, 
 		tensor_M_p = torch.tensor(M_p).float().unsqueeze(0)
 		#print(f'tensor_M_p.shape = {tensor_M_p.shape}')
 
-		#================== crop out the map centered at the agent ==========================
 		_, H, W = M_p.shape
+		q_G  = np.zeros((2, H, W), dtype=np.int16)
+
+		for fron in frontiers:
+			points = fron.points.transpose() # N x 2
+			# for goal map
+			q_G[0, points[:, 0], points[:, 1]] = point_goal_coord[0] - int(fron.centroid[1])
+			q_G[1, points[:, 0], points[:, 1]] = point_goal_coord[1] - int(fron.centroid[0])
+
+		q_G = q_G.astype(np.float32)
+		q_G[0, :, :] *= 1. / (cfg.PRED.PARTIAL_MAP.INPUT_WH[0] / 2)
+		q_G[1, :, :] *= 1. / (cfg.PRED.PARTIAL_MAP.INPUT_WH[1] / 2)
+		tensor_q_G = torch.tensor(q_G).float().unsqueeze(0)
+
+		#================== crop out the map centered at the agent ==========================
+		
 		Wby2, Hby2 = W // 2, H // 2
 		tform_trans = torch.Tensor([[agent_coord[0] - Wby2, agent_coord[1] - Hby2, 0]])
 		crop_center = torch.Tensor([[W / 2.0, H / 2.0]]) + tform_trans[:, :2]
 		# Crop out the appropriate size of the map
 		map_size = int(cfg.PRED.PARTIAL_MAP.OUTPUT_MAP_SIZE / cfg.SEM_MAP.CELL_SIZE)
 		tensor_M_p = crop_map(tensor_M_p, crop_center, map_size, 'nearest')
-
+		tensor_q_G = crop_map(tensor_q_G, crop_center, map_size, 'nearest')
+		
 		tensor_Mp = tensor_M_p.long().squeeze(0)
-
+		tensor_qG = tensor_q_G.float().squeeze(0)
+		
 		#==================== convert into one hot vector ==================================
 		tensor_Mp_occ = tensor_Mp[0] # H x W
 		tensor_Mp_occ = F.one_hot(tensor_Mp_occ, num_classes=3).permute(2, 0, 1) # 3 x H x W
@@ -501,48 +517,46 @@ def compute_frontier_potential(frontiers, point_goal_coord, dist_occupancy_map, 
 		tensor_Mp_sem = F.one_hot(tensor_Mp_sem, num_classes=cfg.SEM_MAP.GRID_CLASS_SIZE).permute(2, 0, 1) # num_classes x H x W
 		tensor_Mp = torch.cat((tensor_Mp_occ, tensor_Mp_sem), 0).float()
 
+		tensor_Mp = torch.cat((tensor_Mp_occ, tensor_Mp_sem), 0).float()
+		tensor_input = torch.cat((tensor_Mp, tensor_qG), 0) # 47 x 480 x 480
+
 		if cfg.PRED.PARTIAL_MAP.INPUT == 'occ_only':
 			tensor_Mp = tensor_Mp[0:3]
+			tensor_input = torch.cat((tensor_Mp, tensor_qG), 0)
 
-		tensor_Mp = tensor_Mp.unsqueeze(0).to(device) # for batch
+		#print(f'tensor_input.shape = {tensor_input.shape}')
+
+		tensor_input = tensor_input.unsqueeze(0).to(device) # for batch
 		
 		with torch.no_grad():
-			outputs = unet_model(tensor_Mp)
+			outputs = unet_model(tensor_input)
 			output = outputs.cpu().numpy()[0].transpose((1, 2, 0))
 
 		bbox_local, bbox_global = inter_local_map_global_map(output[:, :, 0], M_p[0], agent_coord)
-		results = np.zeros((H, W, 4))
+		results = np.zeros((H, W, 3))
 		results[bbox_global[1]:bbox_global[3]+1, bbox_global[0]:bbox_global[2]+1] = output[bbox_local[1]:bbox_local[3]+1, bbox_local[0]:bbox_local[2]+1]	
 		output = results
 
 		#=========================== reshape output and mask out non zero points =============================== 
-		H, W = occupancy_grid.shape
-		#output = cv2.resize(output, (W, H), interpolation=cv2.INTER_NEAREST)
 
-		for f in frontiers:
-			points = f.points.transpose()
+		for fron in frontiers:
+			points = fron.points.transpose()
 			points_vals = output[points[:, 0], points[:, 1]] # N, 4
 			#print(f'points_vals.shape = {points_vals.shape}')
-			mask_points = (points_vals[:, 0] > 0) # N
-			#print(f'mask_points.shape = {mask_points.shape}')
-			if mask_points.shape[0] > 0:
-				U_a = max(np.mean(points_vals[mask_points, 0]) * cfg.PRED.PARTIAL_MAP.DIVIDE_AREA, 1.)
-				U_dall = max(np.mean(points_vals[mask_points, 1]) * cfg.PRED.PARTIAL_MAP.DIVIDE_D, 1.)
-				U_din = max(np.mean(points_vals[mask_points, 2]) * cfg.PRED.PARTIAL_MAP.DIVIDE_D, 1.)
-				U_dout = max(np.mean(points_vals[mask_points, 3]) * cfg.PRED.PARTIAL_MAP.DIVIDE_D, 1.)
-			else:
-				U_a, U_dall, U_din, U_dout = 1.0, 1.0, 1.0, 1.0
+			P_S = np.mean(points_vals[:, 0])
+			R_S = np.mean(points_vals[:, 1])
+			R_E = np.mean(points_vals[:, 2]) 
+			#print(f'P_S = {P_S}, R_S = {R_S}, R_E = {R_E}')
+			
+			if R_S <= 0:
+				R_S = route_through_array(dist_occupancy_map, (point_goal_coord[1], point_goal_coord[0]), 
+					(int(fron.centroid[0]), int(fron.centroid[1])))[1]
+			if R_E <= 0:
+				R_E = 1
 
-			if cfg.NAVI.D_type == 'Sqrt_R':
-				f.R = U_a
-				f.D = round(sqrt(f.R), 2)
-				f.Din = f.D
-				f.Dout = f.D
-			elif cfg.NAVI.D_type == 'Skeleton':
-				f.R = U_a
-				f.D = U_dall
-				f.Din = U_din
-				f.Dout = U_dout
+			fron.P_S = P_S 
+			fron.R_S = R_S
+			fron.R_E = R_E
 
 		if cfg.NAVI.FLAG_VISUALIZE_FRONTIER_POTENTIAL:
 			fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(20, 20))
@@ -705,7 +719,7 @@ def get_frontier_with_DP(frontiers, agent_pose, dist_occupancy_map, LN):
 		#print('-------------------------------------------------------------')
 		visited_frontiers = set()
 		Q = compute_Q(agent_coord, fron, frontiers, visited_frontiers, dist_occupancy_map)
-		print(f'Q = {Q}, R_S = {fron.R_S}')
+		#print(f'Q = {Q}, R_S = {fron.R_S}')
 		if Q < min_Q:
 			min_Q = Q
 			min_frontier = fron

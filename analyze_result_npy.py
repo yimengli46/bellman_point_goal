@@ -8,7 +8,7 @@ import os
 
 #scene_list = cfg.MAIN.TEST_SCENE_LIST
 output_folder = 'output' #cfg.SAVE.TESTING_RESULTS_FOLDER
-result_folder = 'TESTING_RESULTS_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS'
+result_folder = 'LARGE_TESTING_RESULTS_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS'
 npy_list = [os.path.splitext(os.path.basename(x))[0] for x in sorted(glob.glob(f'{output_folder}/{result_folder}/*.npy'))]
 
 df = pd.DataFrame(columns=['Scene', 'Run', 'Success', 'SPL', 'SoftSPL'])
@@ -28,7 +28,7 @@ for npy_name in npy_list:
 		result = results_npy[i]
 
 		eps_id = result['eps_id']
-		try:
+		if 'success' in result['nav_metrics']:
 			metrics_success = result['nav_metrics']['success']
 			metrics_spl = result['nav_metrics']['spl']
 			metrics_softspl = result['nav_metrics']['softspl']
@@ -37,8 +37,10 @@ for npy_name in npy_list:
 				ignore_index=True)
 
 			print(f'scene_name = {scene_name}, eps = {eps_id}, Success = {metrics_success}, SPL = {metrics_spl}')
-		except:
-			print(f'scene_name = {scene_name}, eps = {eps_id} metrics not available')
+		else:
+			df = df.append({'Scene': scene_name, 'Run': eps_id, 'Success': 0., 'SPL': 0, 'SoftSPL': 0}, 
+				ignore_index=True)
+			print(f'scene_name = {scene_name}, eps = {eps_id} failed')
 
 
 print('=========================================================================================')
