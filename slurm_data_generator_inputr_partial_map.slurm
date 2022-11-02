@@ -27,7 +27,7 @@
 #SBATCH --time=5-00:00   # Total time needed for job: Days-Hours:Minutes
 #SBATCH --gres=gpu:4
 #SBATCH --nodelist=NODE078
-#SBATCH --cpus-per-task 22
+#SBATCH --cpus-per-task 21
 
 ## Load the relevant modules needed for the job
 module load cuda/11.2

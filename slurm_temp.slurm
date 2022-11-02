@@ -1,9 +1,9 @@
 #!/bin/sh
 
 ## Give your job a name to distinguish it from other jobs you run.
-#SBATCH --job-name=train_UNet
+## SBATCH --job-name=Op_large
+#SBATCH --job-name=DP_large_NAVMESH
 
-#SBATCH --reservation=yli44_43
 
 ## General partitions: all-HiPri, bigmem-HiPri   --   (12 hour limit)
 ##                     all-LoPri, bigmem-LoPri, gpuq  (5 days limit)
@@ -24,10 +24,9 @@
 
 ## Specify how much time your job needs. (default: see partition above)
 #SBATCH --time=5-00:00   # Total time needed for job: Days-Hours:Minutes
-
-#SBATCH --gres=gpu:4
-#SBATCH --nodelist=NODE079
-#SBATCH --cpus-per-task 22
+#SBATCH --gres=gpu:3
+#SBATCH --nodelist=NODE078
+#SBATCH --cpus-per-task 18
 
 ## Load the relevant modules needed for the job
 module load cuda/11.2
@@ -37,4 +36,11 @@ module load gcc/7.5.0
 source /scratch/yli44/habitat_env_argo/bin/activate
 
 ## Run your program or script
-python train_UNet_input_partial_map.py
+#python main_eval_multiprocess.py --j=5 --config='exp_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS.yaml'
+#python main_eval_multiprocess.py --j=1 --config='large_exp_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS.yaml'
+#python main_eval_multiprocess.py --j=1 --config='exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
+#python main_eval_multiprocess.py --j=1 --config='large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
+#python main_eval_multiprocess.py --j=5 --config='exp_90degree_DP_PCDHEIGHT_MAP_GT_Potential_1STEP_500STEPS.yaml'
+#python main_eval_multiprocess.py --j=5 --config='exp_90degree_DP_PCDHEIGHT_MAP_UNet_OCCandSEM_Potential_1STEP_500STEPS.yaml'
+#python main_eval_multiprocess.py --j=5 --config='large_exp_90degree_DP_PCDHEIGHT_MAP_UNet_OCCandSEM_Potential_1STEP_500STEPS.yaml'
+python main_eval_multiprocess.py --j=5 --config='large_exp_90degree_DP_NAVMESH_MAP_UNet_OCCandSEM_Potential_1STEP_500STEPS.yaml'
