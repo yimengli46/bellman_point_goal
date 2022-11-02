@@ -8,7 +8,7 @@ import os
 
 #scene_list = cfg.MAIN.TEST_SCENE_LIST
 output_folder = 'output' #cfg.SAVE.TESTING_RESULTS_FOLDER
-result_folder = 'LARGE_TESTING_RESULTS_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS'
+result_folder = 'LARGE_TESTING_RESULTS_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS'
 npy_list = [os.path.splitext(os.path.basename(x))[0] for x in sorted(glob.glob(f'{output_folder}/{result_folder}/*.npy'))]
 
 df = pd.DataFrame(columns=['Scene', 'Run', 'Success', 'SPL', 'SoftSPL'])
@@ -20,9 +20,6 @@ for npy_name in npy_list:
 	scene_name = npy_name[8:]
 	results_npy = np.load(f'{output_folder}/{result_folder}/{npy_name}.npy', allow_pickle=True).item()
 	num_test = len(results_npy.keys())
-
-	percent_list = []
-	step_list = []
 
 	for i in range(num_test):
 		result = results_npy[i]

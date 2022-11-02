@@ -27,10 +27,17 @@ env_scene = 'yqstnuAEVhm' #'17DRP5sb8fy' #'yqstnuAEVhm'
 floor_id = 0
 scene_name = 'yqstnuAEVhm_0' #'17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
-scene_floor_dict = np.load(f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy', allow_pickle=True).item()
-
-cfg.merge_from_file('configs/exp_90degree_DP_NAVMESH_MAP_UNet_OCCandSEM_Potential_1STEP_500STEPS.yaml')
+cfg.merge_from_file('configs/large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml')
 cfg.freeze()
+
+if cfg.EVAL.SIZE == 'small':
+	scene_floor_dict = np.load(
+		f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy',
+		allow_pickle=True).item()
+elif cfg.EVAL.SIZE == 'large':
+	scene_floor_dict = np.load(
+		f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/large_scale_{split}_scene_floor_dict.npy',
+		allow_pickle=True).item()
 
 act_dict = {-1: 'Done', 0: 'stop', 1: 'forward', 2: 'left', 3:'right'}
 
@@ -49,7 +56,7 @@ env = habitat.sims.make_sim(config.SIMULATOR.TYPE, config=config.SIMULATOR)
 env.reset()
 
 scene_height = scene_floor_dict[env_scene][floor_id]['y']
-start_pose, goal_pose, _ = scene_floor_dict[env_scene][floor_id]['start_goal_pair'][2]
+start_pose, goal_pose, _ = scene_floor_dict[env_scene][floor_id]['start_goal_pair'][1]
 saved_folder = f'output/TESTING_RESULTS_Frontier'
 
 #============================ get scene ins to cat dict
