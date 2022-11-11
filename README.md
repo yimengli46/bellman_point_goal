@@ -1,11 +1,10 @@
-# Bellman-Equation-2022
-Detect frontiers between explored and unknown areas as subgoals.  
-Select subgoals with maximum values computed from a Bellman Equation designed for exploration.  
+# lsp-habitat
+This repository contains code for an agent navigating to a point goal via LSP on Habitat environments.
 <img src='Figs/example_traj.jpg'>
 ### Installation
 ```
-git clone --branch yimeng https://github.com/RAIL-group/bellman-exploration-2022.git
-cd  bellman-exploration-2022
+git clone --branch yimeng https://github.com/RAIL-group/lsp-habitat.git
+cd  lsp-habitat
 mkdir output
 ```
 
@@ -13,12 +12,8 @@ mkdir output
 We use `python==3.7.4`.  
 We recommend using a conda environment.  
 ```
-conda create --name bellman_explore python=3.7.4
-source activate bellman_explore
-```
-Install the following dependencies before you run the code:  
-```
-pip install -r requirements.txt
+conda create --name lsp_habitat python=3.7.4
+source activate lsp_habitat
 ```
 You can install Habitat-Lab and Habitat-Sim following guidance from [here](https://github.com/facebookresearch/habitat-lab "here").  
 We recommend to install Habitat-Lab and Habitat-Sim from the source code.  
@@ -43,7 +38,7 @@ sudo apt-get install -y --no-install-recommends \
 git checkout tags/stable
 python setup.py install --with-cuda
 ```
-If you don't want to install all the requirements, the necessary dependencies are:  
+You also need to install the dependencies:  
 ```
 habitat==0.2.1
 habitat-sim==0.2.1
@@ -56,25 +51,28 @@ scikit-image
 sknw
 tensorboardX
 ```
+To install lsp-accel, change `line 30` of `RAIL-core-main/modules/lsp_accel/CMakeLists.txt` into where *Eigen* is located.
+```
+pip install RAIL-core-main/modules/lsp_accel
+```
 
 ### Dataset Setup
-Download Habitat MP3D scene data from [here](https://github.com/facebookresearch/habitat-lab "here").    
-Or you can download it from [google drive](https://drive.google.com/drive/folders/180gcW5xq6ZWM4f7yHK_kPc-iAVpGGNfl?usp=sharing "google drive").  
+Download *scene* dataset of **Matterport3D(MP3D)** from [here](https://github.com/facebookresearch/habitat-lab/blob/main/DATASETS.md "here").      
 Upzip the scene data and put it under `habitat-lab/data/scene_datasets/mp3d`.  
-You also need to download self-generated task episode data from [here](https://drive.google.com/drive/folders/1raUypuI9Zgig3dfFgWINv40bnKfvUadW?usp=sharing "here")  
+You are also suggested to download *task* dataset of **Point goal Navigation on MP3D** from [here](https://github.com/facebookresearch/habitat-lab/blob/main/DATASETS.md "here")  
 Unzip the episode data and put it under `habitat-lab/data/datasets/pointnav/mp3d`.  
 Create softlinks to the data.  
 ```
-cd  bellman-exploration-2022
+cd  lsp-habitat
 ln -s habitat-lab/data data
 ```
 The code requires the datasets in data folder in the following format:
 ```
 habitat-lab/data
-                /datasets/pointnav/mp3d
-                                        /temp_train
-                                        /temp_val
-                                        /temp_test
+                /datasets/pointnav/mp3d/v1
+                                        /train
+                                        /val
+                                        /test
                 scene_datasets/mp3d
                                     /1LXtFkjw3qL
                                     /1pXnuDYAj8r
@@ -83,28 +81,20 @@ habitat-lab/data
 
 ### How to Run?
 The code can do  
-(a) exploring scenes  
-(b) building top-down view semantic maps of MP3D scenes   
-(c) building occupancy maps of MP3D scenes.   
+(a) Point Goal Navigation on MP3D test episodes.   
 All the parameters are controlled by the configuration file `core/config.py`.   
 Please create a new configuration file when you initialize a new task and saved in folder `configs`.
 ##### Exploring the environment
-To run the large-scale evaluation, you need to download pre-generated 'scene maps' and 'scene floor heights' from [here](https://drive.google.com/drive/folders/10ApKQzaIPDvEAvbcVXQkaGBjxnvUIpND?usp=sharing "here").  
-Download it and put it under ` bellman-exploration-2022/output`.  
+To run the large-scale evaluation, you need to download pre-generated `scene_maps`, `scene_floor_heights` and `large_scale_semantic_maps` from [here](https://drive.google.com/file/d/1uqCL6N2kpOPjvumw-lBQw55bv288qkDx/view?usp=share_link "here").  
+Download it, unzip it and put the folders under `lsp-habitat/output`.  
 Then you can start the evaluation.  
-For example, if you want to evaluate the baseline Greedy approach, use the following command.  
+For example, if you want to evaluate the optimistic planner on your desktop, use the following command.  
 ```
-python main_eval.py --config='exp_360degree_Greedy_GT_Potential_1STEP_500STEPS.yaml'
+python main_eval.py --config='exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
-If you want to evaluate the proposed Bellman Equation approach, use this command.
+If you have a server with multiple GPUs, use another configuration file.
 ```
-python main_eval.py --config='exp_360degree_DP_GT_Potential_D_Skeleton_Dall_1STEP_500STEPS.yaml'
+python main_eval_multiprocess.py --config='large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
-##### Build top-down view semantic maps
-```
-python -m scripts.build_semantic_BEV_map.py
-```
-##### Build top-down view occupancy maps
-```
-python -m scripts.build_occupancy_map_from_continuous_habitat.py
-```
+
+
