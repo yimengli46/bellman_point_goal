@@ -1,6 +1,5 @@
 import numpy as np
 from modeling.frontier_explore_DP import nav_DP
-from modeling.frontier_explore_ANS import nav_ANS
 from modeling.utils.baseline_utils import create_folder
 import habitat
 import habitat_sim
@@ -73,10 +72,7 @@ def nav_test(env_scene, output_folder, scene_floor_dict):
 			
 			#'''
 			try:
-				if cfg.NAVI.STRATEGY == 'ANS':
-					covered_area_percent, steps, trajectory, action_lst, step_cov_pairs = nav_ANS(split, env, idx, scene_name, height, start_pose, saved_folder, device)
-				else:
-					steps, trajectory, action_lst, nav_metrics = nav_DP(split, env, idx, scene_name, height, start_pose, goal_pose, start_goal_geodesic_distance, saved_folder, device)
+				steps, trajectory, action_lst, nav_metrics = nav_DP(split, env, idx, scene_name, height, start_pose, goal_pose, start_goal_geodesic_distance, saved_folder, device)
 			except:
 				print(f'CCCCCCCCCCCCCC failed {scene_name} EPS {idx} DDDDDDDDDDDDDDD')
 
