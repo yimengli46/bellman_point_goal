@@ -1,7 +1,5 @@
 import numpy as np, cv2, imageio
 import os
-import modeling.utils.depth_utils as du
-import modeling.utils.rotation_utils as ru
 from .utils.fmm_planner import FMMPlanner
 import skimage
 import matplotlib.pyplot as plt
