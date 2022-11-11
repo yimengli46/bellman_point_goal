@@ -1,6 +1,6 @@
 # lsp-habitat
 This repository contains code for an agent navigating to a point goal via LSP on Habitat environments.
-<img src='Figs/example_traj.jpg'>
+<img src='Figs/test_cases.png'>
 ### Installation
 ```
 git clone --branch yimeng https://github.com/RAIL-group/lsp-habitat.git
