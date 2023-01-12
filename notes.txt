@@ -1,0 +1,17 @@
+ffmpeg -framerate 15 -i happy%d.jpg -c:v libx264 -r 30 output.mp4
+
+
+ffmpeg -framerate 10 -pattern_type glob -i 'DP_NAVMESH/step_*_panor.png' -vcodec libx264 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" DP_YFu_panor.mp4
+ffmpeg -i DP_YFu_panor.mp4 -s 512x512 -c:a copy DP_YFu_panor_small.mp4
+
+ffmpeg -framerate 10 -pattern_type glob -i 'DP_NAVMESH/step_*_semmap.png' -vcodec libx264 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" DP_YFu_map.mp4
+
+ffmpeg -framerate 10 -pattern_type glob -i 'DP_PCDHEIGHT/step_*_panor.png' -vcodec libx264 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" DP_2t_panor.mp4
+ffmpeg -i DP_2t_panor.mp4 -s 512x512 -c:a copy DP_2t_panor_small.mp4
+
+ffmpeg -framerate 10 -pattern_type glob -i 'DP_PCDHEIGHT/step_*_semmap.png' -vcodec libx264 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" DP_2t_map.mp4
+
+ffmpeg -framerate 10 -pattern_type glob -i 'Optimum_PCDHEIGHT/step_*_panor.png' -vcodec libx264 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" Opti_2t_panor.mp4
+ffmpeg -i Opti_2t_panor.mp4 -s 512x512 -c:a copy Opti_2t_panor_small.mp4
+
+ffmpeg -framerate 10 -pattern_type glob -i 'Optimum_PCDHEIGHT/step_*_semmap.png' -vcodec libx264 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" Opti_2t_map.mp4
