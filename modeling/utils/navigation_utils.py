@@ -67,6 +67,8 @@ def get_obs_and_pose(env, agent_pos, heading_angle, keep=True):
     obs = env.get_observations_at(agent_pos,
                                   agent_rot,
                                   keep_agent_at_new_pose=keep)
+
+    #============= get allocentric pose ================
     agent_pos = env.get_agent_state().position
     agent_rot = env.get_agent_state().rotation
     #print(f'agent_pos = {agent_pos}, agent_rot = {agent_rot}')
@@ -74,7 +76,11 @@ def get_obs_and_pose(env, agent_pos, heading_angle, keep=True):
                                               np.array([0, 0, -1]))
     phi = cartesian_to_polar(-heading_vector[2], heading_vector[0])[1]
     angle = phi
-    pose = (agent_pos[0], agent_pos[2], angle)
+    allo_pose = (agent_pos[0], agent_pos[2], angle)
+
+    #================ compute relative pose =================
+    rel_pose = (0, 0, 0)
+
     '''
 	rgb_img = obs['rgb']
 	depth_img = 5. * obs['depth']
@@ -101,12 +107,13 @@ def get_obs_and_pose(env, agent_pos, heading_angle, keep=True):
 		plt.show()
 	'''
 
-    return obs, pose
+    return obs, rel_pose, allo_pose
 
 
-def get_obs_and_pose_by_action(env, act):
+def get_obs_and_pose_by_action(env, act, prev_allo_pose=(0,0,0)):
     obs = env.step(act)
 
+    #============= get allocentric pose ================
     agent_pos = env.get_agent_state().position
     agent_rot = env.get_agent_state().rotation
     #print(f'agent_pos = {agent_pos}, agent_rot = {agent_rot}')
@@ -114,9 +121,38 @@ def get_obs_and_pose_by_action(env, act):
                                               np.array([0, 0, -1]))
     phi = cartesian_to_polar(-heading_vector[2], heading_vector[0])[1]
     angle = phi
-    pose = (agent_pos[0], agent_pos[2], angle)
+    allo_pose = (agent_pos[0], agent_pos[2], angle)
 
-    return obs, pose
+    #================ compute relative pose =================
+    rel_pose = tuple(np.array(allo_pose) - np.array(prev_allo_pose))
+
+    return obs, rel_pose, allo_pose
+
+def get_obs_and_pose_from_habitat_lab_env(env, obs_and_info, prev_allo_pose=None):
+    obs = {}
+    obs['rgb'] = obs_and_info['rgb']
+    obs['depth'] = obs_and_info['depth']
+    obs['semantic'] = obs_and_info['semantic']
+
+    #rel_pose = tuple(obs_and_info['gps'])
+
+    #============= get allocentric pose ================
+    agent_pos = env.get_agent_state().position
+    agent_rot = env.get_agent_state().rotation
+    #print(f'agent_pos = {agent_pos}, agent_rot = {agent_rot}')
+    heading_vector = quaternion_rotate_vector(agent_rot.inverse(), np.array([0, 0, -1]))
+    phi = cartesian_to_polar(-heading_vector[2], heading_vector[0])[1]
+    angle = phi
+    allo_pose = (agent_pos[0], agent_pos[2], angle)
+
+    #================ compute relative pose =================
+    if not prev_allo_pose:
+        rel_pose = (0, 0, 0)
+    else:
+        rel_pose = tuple(np.array(allo_pose) - np.array(prev_allo_pose))
+
+    return obs, rel_pose, allo_pose
+
 
 
 # Return success, SPL, soft_SPL, distance_to_goal measures

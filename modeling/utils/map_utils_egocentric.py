@@ -4,7 +4,7 @@ import cv2
 import matplotlib.pyplot as plt
 import math
 from math import cos, sin, acos, atan2, pi, floor
-from .baseline_utils import project_pixels_to_world_coords, convertPanopSegToSSeg, apply_color_to_map, pose_to_coords, convertInsSegToSSeg
+from .baseline_utils import project_pixels_to_world_coords, convertPanopSegToSSeg, apply_color_to_map, pose_to_coords, convertInsSegToSSeg, project_pixels_to_camera_coords
 from .baseline_utils import pxl_coords_to_pose
 from core import cfg
 from .build_map_utils import find_first_nonzero_elem_per_row
@@ -12,6 +12,9 @@ from timeit import default_timer as timer
 from skimage import morphology
 import scipy.ndimage
 from skimage.draw import line, circle_perimeter
+
+from torch.nn import functional as F
+import torch
 
 
 def find_neighborhood(agent_coords, occupancy_map):
@@ -55,7 +58,7 @@ The robot takes actions in the environment and use the observations to build the
 """
 
 
-class SemanticMap:
+class SemanticMap_Egocentric:
 
     def __init__(self, split, scene_name, pose_range, coords_range, WH,
                  ins2cat_dict):
@@ -92,10 +95,10 @@ class SemanticMap:
         print(f'self.gt_occupancy_map.shape = {self.gt_occupancy_map.shape}')
 
         # ==================================== initialize 4d grid =================================
-        self.min_X = -cfg.SEM_MAP.WORLD_SIZE
-        self.max_X = cfg.SEM_MAP.WORLD_SIZE
-        self.min_Z = -cfg.SEM_MAP.WORLD_SIZE
-        self.max_Z = cfg.SEM_MAP.WORLD_SIZE
+        self.min_X = -cfg.SEM_MAP.LOCAL_MAP_SIZE
+        self.max_X = cfg.SEM_MAP.LOCAL_MAP_SIZE
+        self.min_Z = -cfg.SEM_MAP.LOCAL_MAP_SIZE
+        self.max_Z = cfg.SEM_MAP.LOCAL_MAP_SIZE
         self.min_Y = 0.0
         self.max_Y = cfg.SENSOR.AGENT_HEIGHT + self.cell_size
 
@@ -117,7 +120,7 @@ class SemanticMap:
         self.four_dim_grid = np.zeros(
             (len(self.z_grid), len(self.y_grid) + 1, len(
                 self.x_grid), cfg.SEM_MAP.GRID_CLASS_SIZE),
-            dtype=np.int16)  # x, y, z, C
+            dtype=np.int16)  # z, y, x, C
         print(f'self.four_dim_grid.shape = {self.four_dim_grid.shape}')
 
         #============================================
@@ -131,6 +134,37 @@ class SemanticMap:
     def build_semantic_map(self, obs_list, pose_list, step=0, saved_folder=''):
         """ update semantic map with observations rgb_img, depth_img, sseg_img and robot pose."""
         assert len(obs_list) == len(pose_list)
+
+        #========================== Transform old point cloud to new view ==================
+        with torch.no_grad():
+            tensor_map = torch.tensor(self.four_dim_grid).permute(0, 2, 1, 3) # z, x, y, c
+            r, c = tensor_map.shape[:2]
+            tensor_map = tensor_map.reshape((r, c, -1)) # z, x, yxc
+            tensor_map = tensor_map.unsqueeze(0).permute(0, 3, 1, 2).float() # B, yxc, z, x 
+            size = tensor_map.shape
+
+            pose = pose_list[0]
+            tx, tz, theta = pose[0], -pose[1], -pose[2]
+            print(f'============> tx = {tx}, tz = {tz}, theta = {theta}')
+            angle = -theta 
+            tx = tx
+            tz = -tz
+            translation = np.array([tx/12.0, tz/12.0])
+            print(f'translation = {translation}')
+
+            theta = np.array([np.cos(angle), np.sin(angle), translation[0], 
+                              -np.sin(angle), np.cos(angle), translation[1]]).reshape(1, 2, 3)
+
+            theta = torch.tensor(theta)
+            grid = F.affine_grid(theta, torch.Size(size), align_corners=True).float()
+
+            output_map = F.grid_sample(tensor_map, grid, mode='nearest', align_corners=True)
+            output_map = output_map.permute(0, 2, 3, 1).squeeze(0).reshape((r, c, len(self.y_grid)+1, cfg.SEM_MAP.GRID_CLASS_SIZE)) # z, x, y, c
+            output_map = output_map.permute(0, 2, 1, 3).numpy()
+
+        self.four_dim_grid = output_map
+
+        #===================== generate new point cloud of current view ====================
         rgb_lst, depth_lst, sseg_lst = [], [], []
         for idx, obs in enumerate(obs_list):
             pose = pose_list[idx]
@@ -173,30 +207,15 @@ class SemanticMap:
 
             #'''
             if cfg.NAVI.HFOV == 90:
-                xyz_points, sseg_points = project_pixels_to_world_coords(
+                xyz_points, sseg_points = project_pixels_to_camera_coords(
                     sseg_img,
                     depth_img,
-                    sem_map_pose,
                     gap=2,
                     FOV=90,
                     cx=128,
                     cy=128,
                     resolution_x=256,
                     resolution_y=256,
-                    theta_x=0.,
-                    ignored_classes=self.IGNORED_CLASS)
-            elif cfg.NAVI.HFOV == 360:
-                xyz_points, sseg_points = project_pixels_to_world_coords(
-                    sseg_img,
-                    depth_img,
-                    sem_map_pose,
-                    gap=2,
-                    FOV=90,
-                    cx=128,
-                    cy=128,
-                    resolution_x=256,
-                    resolution_y=256,
-                    theta_x=0.,
                     ignored_classes=self.IGNORED_CLASS)
 
             #print(f'xyz_points.shape = {xyz_points.shape}')
@@ -216,37 +235,18 @@ class SemanticMap:
             z_coord = (self.H - 1) - np.floor(
                 (xyz_points[2, :] - self.min_Z) / self.cell_size).astype(int)
 
+            #'''
             if x_coord.shape[0] > 0:
                 self.four_dim_grid[z_coord, y_coord, x_coord, sseg_points] += 1
-
-        if cfg.SEM_MAP.FLAG_VISUALIZE_EGO_OBS and cfg.NAVI.HFOV == 360:
-            panorama_rgb = np.concatenate(rgb_lst, axis=1)
-            panorama_depth = np.concatenate(depth_lst, axis=1)
-            panorama_sseg = np.concatenate(sseg_lst, axis=1)
-
-            fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(15, 6))
-            ax[0].imshow(panorama_rgb)
-            ax[0].get_xaxis().set_visible(False)
-            ax[0].get_yaxis().set_visible(False)
-            ax[0].set_title("rgb")
-            ax[1].imshow(apply_color_to_map(panorama_sseg))
-            ax[1].get_xaxis().set_visible(False)
-            ax[1].get_yaxis().set_visible(False)
-            ax[1].set_title("sseg")
-            ax[2].imshow(panorama_depth)
-            ax[2].get_xaxis().set_visible(False)
-            ax[2].get_yaxis().set_visible(False)
-            ax[2].set_title("depth")
-            fig.tight_layout()
-            plt.show()
+            #'''
 
     def get_semantic_map(self):
         """ get the built semantic map. """
         # reduce size of the four_dim_grid
         smaller_four_dim_grid = self.four_dim_grid[
-            self.coords_range[1]:self.coords_range[3] + 1,
+            :,
             0:self.THRESHOLD_HIGH,
-            self.coords_range[0]:self.coords_range[2] + 1, :]
+            :, :]
 
         #======================= build semantic map ===============================
         # argmax over the category axis
@@ -306,9 +306,9 @@ class SemanticMap:
         """ get currently maintained occupancy map """
         # reduce size of the four_dim_grid
         smaller_four_dim_grid = self.four_dim_grid[
-            self.coords_range[1]:self.coords_range[3] + 1,
+            :,
             0:self.THRESHOLD_HIGH,
-            self.coords_range[0]:self.coords_range[2] + 1, :]
+            :, :]
 
         #======================= build semantic map ===============================
         # argmax over the category axis

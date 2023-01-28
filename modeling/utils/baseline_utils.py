@@ -40,20 +40,19 @@ def plus_theta_fn(previous_theta, current_theta):
 
 def project_pixels_to_camera_coords(sseg_img,
                                     current_depth,
-                                    current_pose,
                                     gap=2,
                                     FOV=90,
                                     cx=320,
                                     cy=240,
                                     resolution_x=640,
                                     resolution_y=480,
-                                    ignored_classes=[]):
+                                    ignored_classes=[],
+                                    sensor_height=cfg.SENSOR.SENSOR_HEIGHT):
     """Project pixels in sseg_img into camera frame given depth image current_depth and camera pose current_pose.
 
   XYZ = K.inv((u, v))
   """
     ## camera intrinsic matrix
-    FOV = 79
     radian = FOV * pi / 180.
     focal_length = cx / tan(radian / 2)
     K = np.array([[focal_length, 0, cx], [0, focal_length, cy], [0, 0, 1]])
@@ -61,7 +60,7 @@ def project_pixels_to_camera_coords(sseg_img,
     ## first compute the rotation and translation from current frame to goal frame
     ## then compute the transformation matrix from goal frame to current frame
     ## thransformation matrix is the camera2's extrinsic matrix
-    tx, tz, theta = current_pose
+    tx, tz, theta = (0, 0, 0)
     R = np.array([[cos(theta), 0, sin(theta)], [0, 1, 0],
                   [-sin(theta), 0, cos(theta)]])
     T = np.array([tx, 0, tz])
@@ -87,12 +86,28 @@ def project_pixels_to_camera_coords(sseg_img,
     points_4d[1, :] = points_4d[1, :] * points_4d[2, :]
 
     ## transform kp1_4d from camera1(current) frame to camera2(goal) frame through transformation matrix
-    print('points_4d.shape = {}'.format(points_4d.shape))
-    points_3d = points_4d[:3, :]
-    print('points_3d.shape = {}'.format(points_3d.shape))
+    points_3d = transformation_matrix.dot(points_4d)
+
+    # reverse y-dim and add sensor height
+    points_3d[1, :] = points_3d[1, :] * -1 + sensor_height
+
+    if False:
+        points_3d_img = points_3d.reshape(
+            (3, yv.shape[0], yv.shape[1])).transpose((1, 2, 0))
+        plt.imshow(points_3d_img[:, :, 1])
+        plt.show()
+
+    # ignore some artifacts points with depth == 0
+    depth_points = current_depth[yv.flatten(), xv.flatten()].flatten()
+    good = np.logical_and(depth_points > cfg.SENSOR.DEPTH_MIN,
+                          depth_points < cfg.SENSOR.DEPTH_MAX)
+    #print(f'points_3d.shape = {points_3d.shape}')
+    points_3d = points_3d[:, good]
+    #print(f'points_3d.shape = {points_3d.shape}')
 
     ## pick x-row and z-row
     sseg_points = sseg_img[yv.flatten(), xv.flatten()].flatten()
+    sseg_points = sseg_points[good]
 
     # ignore some classes points
     #print('sseg_points.shape = {}'.format(sseg_points.shape))
@@ -209,7 +224,7 @@ def convertInsSegToSSeg(InsSeg, ins2cat_dict):
 	given the mapping from instance to category ins2cat_dict.
 	"""
     ins_id_list = list(ins2cat_dict.keys())
-    SSeg = np.zeros(InsSeg.shape, dtype=np.bool)
+    SSeg = np.zeros(InsSeg.shape, dtype=bool)
     for ins_id in ins_id_list:
         SSeg = np.where(InsSeg == ins_id, ins2cat_dict[ins_id], SSeg)
     return SSeg

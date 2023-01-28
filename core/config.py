@@ -5,13 +5,11 @@ _C = CN()
 #=============================== dataset and files =============================
 _C.GENERAL = CN()
 _C.GENERAL.SCENE_HEIGHTS_DICT_PATH = 'output/scene_height_distribution'
-_C.GENERAL.HABITAT_CONFIG_PATH = 'configs/habitat_env/exploration_see_the_floor.yaml'
 _C.GENERAL.BUILD_MAP_CONFIG_PATH = 'configs/habitat_env/build_map_mp3d.yaml'
-_C.GENERAL.LEARNED_MAP_GG_CONFIG_PATH = 'configs/habitat_env/point_nav_mp3d_for_GG.yaml'
 _C.GENERAL.DATALOADER_CONFIG_PATH = 'configs/habitat_env/dataloader.yaml'
-_C.GENERAL.HABITAT_TRAIN_EPISODE_DATA_PATH = 'data/datasets/pointnav/mp3d/temp_train/all.json.gz'
-_C.GENERAL.HABITAT_VAL_EPISODE_DATA_PATH = 'data/datasets/pointnav/mp3d/temp_val/all.json.gz'
-_C.GENERAL.HABITAT_TEST_EPISODE_DATA_PATH = 'data/datasets/pointnav/mp3d/temp_test/all.json.gz'
+#_C.GENERAL.HABITAT_TRAIN_EPISODE_DATA_PATH = 'data/datasets/pointnav/mp3d/temp_train/all.json.gz'
+#_C.GENERAL.HABITAT_VAL_EPISODE_DATA_PATH = 'data/datasets/pointnav/mp3d/temp_val/all.json.gz'
+_C.GENERAL.HABITAT_SMALL_TEST_EPISODE_DATA_PATH = 'output/scene_height_distribution/pointgoal_episodes_small/test'
 _C.GENERAL.HABITAT_SCENE_DATA_PATH = 'data/scene_datasets/'
 _C.GENERAL.RANDOM_SEED = 5
 
@@ -51,7 +49,7 @@ _C.SEM_MAP.OBJECT_MASK_PIXEL_THRESH = 100
 _C.SEM_MAP.UNDETECTED_PIXELS_CLASS = 41 # explored but semantic-unrecognized pixel
 _C.SEM_MAP.CELL_SIZE = 0.05
 _C.SEM_MAP.WORLD_SIZE = 50.0 # world model size in each dimension (left, right, top , bottom)
-#_C.SEM_MAP.GRID_Y_SIZE = 60
+_C.SEM_MAP.LOCAL_MAP_SIZE = 12.0 # local map size is 12 meters in each direction, half of 24.0
 _C.SEM_MAP.GRID_CLASS_SIZE = 42
 _C.SEM_MAP.HABITAT_FLOOR_IDX = 2
 _C.SEM_MAP.POINTS_CNT = 2
