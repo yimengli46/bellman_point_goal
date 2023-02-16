@@ -1,13 +1,20 @@
-# lsp-habitat
-This repository contains code for an agent navigating to a point goal via LSP on Habitat environments.
+# Comparison of Model Free and Model-Based Learning-Informed Planning for PointGoal Navigation
+This is the code release for our CoRL 2022 Long Horizon Planning Workshop paper:
+
+[Comparison of Model Free and Model-Based Learning-Informed Planning for PointGoal Navigation](https://arxiv.org/pdf/2212.08801.pdf)<br/>
+Yimeng Li*, Arnab Debnath*, Gregory J. Stein, Jana Kosecka<br/>
+George Mason University
+
+Project website: [https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html](https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html)
+
 <img src='Figs/test_cases.png'>
+
 ### Installation
 ```
-git clone --branch yimeng https://github.com/RAIL-group/lsp-habitat.git
-cd  lsp-habitat
+git clone --branch main https://github.com/yimengli46/bellman_point_goal.git
+cd  bellman_point_goal
 mkdir output
 ```
-
 ### Dependencies
 We use `python==3.7.4`.  
 We recommend using a conda environment.  
@@ -23,7 +30,7 @@ Use the following commands to set it up:
 # install habitat-lab
 git clone --branch stable https://github.com/facebookresearch/habitat-lab.git
 cd habitat-lab
-git checkout tags/stable
+git checkout tags/v0.2.1
 pip install -e .
 
 # install habitat-sim
@@ -35,7 +42,7 @@ sudo apt-get update || true
 # but if not, let's get the essentials for EGL support:
 sudo apt-get install -y --no-install-recommends \
      libjpeg-dev libglm-dev libgl1-mesa-glx libegl1-mesa-dev mesa-utils xorg-dev freeglut3-dev
-git checkout tags/stable
+git checkout tags/v0.2.1
 python setup.py install --with-cuda
 ```
 You also need to install the dependencies:  
@@ -51,9 +58,9 @@ scikit-image
 sknw
 tensorboardX
 ```
-To install lsp-accel, change `line 30` of `RAIL-core-main/modules/lsp_accel/CMakeLists.txt` into where *Eigen* is located.
+To install lsp-accel, change `line 30` of `lsp_accel/CMakeLists.txt` into where *Eigen* is located.
 ```
-pip install RAIL-core-main/modules/lsp_accel
+pip install lsp_accel
 ```
 
 ### Dataset Setup
@@ -63,7 +70,7 @@ You are also suggested to download *task* dataset of **Point goal Navigation on 
 Unzip the episode data and put it under `habitat-lab/data/datasets/pointnav/mp3d`.  
 Create softlinks to the data.  
 ```
-cd  lsp-habitat
+cd  bellman_point_goal
 ln -s habitat-lab/data data
 ```
 The code requires the datasets in data folder in the following format:
@@ -86,7 +93,7 @@ All the parameters are controlled by the configuration file `core/config.py`.
 Please create a new configuration file when you initialize a new task and saved in folder `configs`.
 ##### Exploring the environment
 To run the large-scale evaluation, you need to download pre-generated `scene_maps`, `scene_floor_heights` and `large_scale_semantic_maps` from [here](https://drive.google.com/file/d/1uqCL6N2kpOPjvumw-lBQw55bv288qkDx/view?usp=share_link "here").  
-Download it, unzip it and put the folders under `lsp-habitat/output`.  
+Download it, unzip it and put the folders under `bellman_point_goal/output`.  
 Then you can start the evaluation.  
 For example, if you want to evaluate the optimistic planner on your desktop, use the following command.  
 ```
