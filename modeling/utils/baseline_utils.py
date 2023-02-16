@@ -1,15 +1,8 @@
-import collections
-import copy
-import json
 import os
-import networkx as nx
 import numpy as np
 import numpy.linalg as LA
-import scipy.io as sio
-import cv2
 import math
-from math import cos, sin, acos, atan2, pi, floor, tan
-from io import StringIO
+from math import cos, sin, pi, floor, tan
 import matplotlib.pyplot as plt
 from .constants import coco_categories_mapping, panopticSeg_mapping, d3_41_colors_rgb, COCO_74_COLORS
 import matplotlib as mpl
@@ -52,15 +45,15 @@ def project_pixels_to_camera_coords(sseg_img,
 
   XYZ = K.inv((u, v))
   """
-    ## camera intrinsic matrix
+    # camera intrinsic matrix
     FOV = 79
     radian = FOV * pi / 180.
     focal_length = cx / tan(radian / 2)
     K = np.array([[focal_length, 0, cx], [0, focal_length, cy], [0, 0, 1]])
     inv_K = LA.inv(K)
-    ## first compute the rotation and translation from current frame to goal frame
-    ## then compute the transformation matrix from goal frame to current frame
-    ## thransformation matrix is the camera2's extrinsic matrix
+    # first compute the rotation and translation from current frame to goal frame
+    # then compute the transformation matrix from goal frame to current frame
+    # thransformation matrix is the camera2's extrinsic matrix
     tx, tz, theta = current_pose
     R = np.array([[cos(theta), 0, sin(theta)], [0, 1, 0],
                   [-sin(theta), 0, cos(theta)]])
@@ -86,22 +79,20 @@ def project_pixels_to_camera_coords(sseg_img,
     points_4d[0, :] = points_4d[0, :] * points_4d[2, :]
     points_4d[1, :] = points_4d[1, :] * points_4d[2, :]
 
-    ## transform kp1_4d from camera1(current) frame to camera2(goal) frame through transformation matrix
+    # transform kp1_4d from camera1(current) frame to camera2(goal) frame through transformation matrix
     print('points_4d.shape = {}'.format(points_4d.shape))
     points_3d = points_4d[:3, :]
     print('points_3d.shape = {}'.format(points_3d.shape))
 
-    ## pick x-row and z-row
+    # pick x-row and z-row
     sseg_points = sseg_img[yv.flatten(), xv.flatten()].flatten()
 
     # ignore some classes points
-    #print('sseg_points.shape = {}'.format(sseg_points.shape))
+
     for c in ignored_classes:
         good = (sseg_points != c)
         sseg_points = sseg_points[good]
         points_3d = points_3d[:, good]
-    #print('after: sseg_points.shape = {}'.format(sseg_points.shape))
-    #print('after: points_3d.shape = {}'.format(points_3d.shape))
 
     return points_3d, sseg_points.astype(int)
 
@@ -123,17 +114,16 @@ def project_pixels_to_world_coords(sseg_img,
   (u, v) = KRT(XYZ)
   """
 
-    ## camera intrinsic matrix
+    # camera intrinsic matrix
     radian = FOV * pi / 180.
     focal_length = cx / tan(radian / 2)
     K = np.array([[focal_length, 0, cx], [0, focal_length, cy], [0, 0, 1]])
     inv_K = LA.inv(K)
-    ## first compute the rotation and translation from current frame to goal frame
-    ## then compute the transformation matrix from goal frame to current frame
-    ## thransformation matrix is the camera2's extrinsic matrix
+    # first compute the rotation and translation from current frame to goal frame
+    # then compute the transformation matrix from goal frame to current frame
+    # thransformation matrix is the camera2's extrinsic matrix
     tx, tz, theta = current_pose
-    #theta = -(theta + 0.5 * pi)
-    #theta = -theta
+
     R_y = np.array([[cos(theta), 0, sin(theta)], [0, 1, 0],
                     [-sin(theta), 0, cos(theta)]])
     # used when I tilt the camera up/down
@@ -168,7 +158,7 @@ def project_pixels_to_world_coords(sseg_img,
         plt.imshow(points_4d_img[:, :, 1])
         plt.show()
 
-    ## transform kp1_4d from camera1(current) frame to camera2(goal) frame through transformation matrix
+    # transform kp1_4d from camera1(current) frame to camera2(goal) frame through transformation matrix
     points_3d = transformation_matrix.dot(points_4d)
 
     # reverse y-dim and add sensor height
@@ -184,30 +174,27 @@ def project_pixels_to_world_coords(sseg_img,
     depth_points = current_depth[yv.flatten(), xv.flatten()].flatten()
     good = np.logical_and(depth_points > cfg.SENSOR.DEPTH_MIN,
                           depth_points < cfg.SENSOR.DEPTH_MAX)
-    #print(f'points_3d.shape = {points_3d.shape}')
-    points_3d = points_3d[:, good]
-    #print(f'points_3d.shape = {points_3d.shape}')
 
-    ## pick x-row and z-row
+    points_3d = points_3d[:, good]
+
+    # pick x-row and z-row
     sseg_points = sseg_img[yv.flatten(), xv.flatten()].flatten()
     sseg_points = sseg_points[good]
 
     # ignore some classes points
-    #print('sseg_points.shape = {}'.format(sseg_points.shape))
+
     for c in ignored_classes:
         good = (sseg_points != c)
         sseg_points = sseg_points[good]
         points_3d = points_3d[:, good]
-    #print('after: sseg_points.shape = {}'.format(sseg_points.shape))
-    #print('after: points_3d.shape = {}'.format(points_3d.shape))
 
     return points_3d, sseg_points.astype(int)
 
 
 def convertInsSegToSSeg(InsSeg, ins2cat_dict):
     """convert instance segmentation image InsSeg (generated by Habitat Simulator) into Semantic segmentation image SSeg,
-	given the mapping from instance to category ins2cat_dict.
-	"""
+        given the mapping from instance to category ins2cat_dict.
+        """
     ins_id_list = list(ins2cat_dict.keys())
     SSeg = np.zeros(InsSeg.shape, dtype=np.bool)
     for ins_id in ins_id_list:
@@ -219,14 +206,14 @@ def convertMaskRCNNToSSeg(detectron2_npy, H=480, W=640, det_thresh=0.5):
     """convert Detectron2 detected instance segmentation image InsSeg into Semantic segmentation image SSeg,
   given the mapping from instance to category ins2cat_dict.
   """
-    #print(detectron2_npy)
+
     SSeg = np.zeros((H, W), dtype=np.int32)  # 15 semantic categories
     idxs = list(range(len(detectron2_npy['classes'])))
-    #print(f'idxs = {idxs}')
+
     for j in idxs[::-1]:
         class_idx = detectron2_npy['classes'][j]
         score = detectron2_npy['scores'][j]
-        #print(f'j = {j}, class = {class_idx}')
+
         if class_idx in list(
                 coco_categories_mapping.keys()) and score > det_thresh:
             idx = coco_categories_mapping[
@@ -267,8 +254,8 @@ def apply_color_to_map(semantic_map, flag_small_categories=False):
 def create_folder(folder_name, clean_up=False):
     """ create folder with directory folder_name.
 
-	If the folder exists before creation, setup clean_up to True to remove files in the folder.
-	"""
+        If the folder exists before creation, setup clean_up to True to remove files in the folder.
+        """
     flag_exist = os.path.isdir(folder_name)
     if not flag_exist:
         print('{} folder does not exist, so create one.'.format(folder_name))
@@ -328,10 +315,10 @@ def get_class_mapper(dataset='gibson'):
     """ generate the mapping from category to category idx for dataset Gibson 'gibson' and MP3D dataset as 'mp3d'"""
     class_dict = {}
     if dataset == 'mp3d':
-        categories = ['void', 'wall', 'floor','chair','door','table','picture','cabinet','cushion','window','sofa','bed', \
-          'curtain','chest_of_drawers','plant','sink','stairs','ceiling','toilet','stool','towel','mirror','tv_monitor', \
-          'shower','column','bathtub','counter','fireplace','lighting','beam','railing','shelving','blinds','gym_equipment', \
-          'seating','board_panel','furniture','appliances','clothes','objects','misc']
+        categories = ['void', 'wall', 'floor', 'chair', 'door', 'table', 'picture', 'cabinet', 'cushion', 'window', 'sofa', 'bed',
+                      'curtain', 'chest_of_drawers', 'plant', 'sink', 'stairs', 'ceiling', 'toilet', 'stool', 'towel', 'mirror', 'tv_monitor',
+                      'shower', 'column', 'bathtub', 'counter', 'fireplace', 'lighting', 'beam', 'railing', 'shelving', 'blinds', 'gym_equipment',
+                      'seating', 'board_panel', 'furniture', 'appliances', 'clothes', 'objects', 'misc']
     elif dataset == 'gibson':
         categories = list(
             np.load(f'{cfg.PF.SEMANTIC_PRIOR_PATH}/all_objs_list.npy',
@@ -387,7 +374,7 @@ def save_sem_map_through_plt(img, name):
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     fig.tight_layout()
-    #plt.show()
+    # plt.show()
     fig.savefig(name)
     plt.close()
 
@@ -399,7 +386,7 @@ def save_occ_map_through_plt(img, name):
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     fig.tight_layout()
-    #plt.show()
+    # plt.show()
     fig.savefig(name)
     plt.close()
 
@@ -407,30 +394,28 @@ def save_occ_map_through_plt(img, name):
 def gen_arrow_head_marker(rot):
     """generate a marker to plot with matplotlib scatter, plot, ...
 
-	https://matplotlib.org/stable/api/markers_api.html#module-matplotlib.markers
+        https://matplotlib.org/stable/api/markers_api.html#module-matplotlib.markers
 
-	rot=0: positive x direction
-	Parameters
-	----------
-	rot : float
-		rotation in radian
-		0 is positive x direction
+        rot=0: positive x direction
+        Parameters
+        ----------
+        rot : float
+                rotation in radian
+                0 is positive x direction
 
-	Returns
-	-------
-	arrow_head_marker : Path
-		use this path for marker argument of plt.scatter
-	scale : float
-		multiply a argument of plt.scatter with this factor got get markers
-		with the same size independent of their rotation.
-		Paths are autoscaled to a box of size -1 <= x, y <= 1 by plt.scatter
-	"""
+        Returns
+        -------
+        arrow_head_marker : Path
+                use this path for marker argument of plt.scatter
+        scale : float
+                multiply a argument of plt.scatter with this factor got get markers
+                with the same size independent of their rotation.
+                Paths are autoscaled to a box of size -1 <= x, y <= 1 by plt.scatter
+        """
 
     # rotate the rot to the marker's coordinate system
     rotate_rot = -(rot - .5 * pi)
-    #print(f'rot in drawing is {math.degrees(rot)}, rotate_rot is {math.degrees(rotate_rot)}')
     rot = math.degrees(rotate_rot)
-    #print(f'visualized angle = {rot}')
 
     arr = np.array([[.1, .3], [.1, -.3], [1, 0]])  # arrow shape
     angle = rot / 180 * np.pi

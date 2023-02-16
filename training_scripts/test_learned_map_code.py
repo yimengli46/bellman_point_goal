@@ -1,8 +1,8 @@
 import numpy as np
-from modeling.utils.baseline_utils import create_folder
+
 import habitat
-import habitat_sim
-from modeling.utils.navigation_utils import SimpleRLEnv, get_scene_name, get_obs_and_pose
+
+from modeling.utils.navigation_utils import SimpleRLEnv,  get_obs_and_pose
 from core import cfg
 from modeling.localNavigator_Astar import localNav_Astar
 from modeling.utils.baseline_utils import read_occ_map_npy
@@ -11,14 +11,8 @@ import matplotlib.pyplot as plt
 from models.predictors import get_predictor_from_options
 from utils.test_utils import get_latest_model, load_model
 from models.semantic_grid import SemanticGrid
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
-import habitat
-import habitat_sim
-
 import utils.utils as utils
 import utils.test_utils as tutils
 import utils.m_utils as mutils
@@ -26,7 +20,7 @@ import utils.viz_utils as vutils
 
 device = 'cuda'
 
-#========================= load the occupancy map =============================
+# ========================= load the occupancy map =============================
 predictor = get_predictor_from_options(cfg).to('cuda')
 # Needed only for models trained with multi-gpu setting
 predictor = nn.DataParallel(predictor)
@@ -45,7 +39,7 @@ class Param():
         self.xs, self.ys = torch.tensor(np.meshgrid(
             np.linspace(-1, 1, cfg.MAP.IMG_SIZE),
             np.linspace(1, -1, cfg.MAP.IMG_SIZE)),
-                                        device='cuda')
+            device='cuda')
         self.xs = self.xs.reshape(1, cfg.MAP.IMG_SIZE, cfg.MAP.IMG_SIZE)
         self.ys = self.ys.reshape(1, cfg.MAP.IMG_SIZE, cfg.MAP.IMG_SIZE)
         K = np.array([[1 / np.tan(self.hfov / 2.), 0., 0., 0.],
@@ -61,7 +55,7 @@ class Param():
 def run_map_predictor(step_ego_grid_crops):
     input_batch = step_ego_grid_crops.to(device).unsqueeze(0)
 
-    ### Estimate average predictions from the ensemble
+    # Estimate average predictions from the ensemble
     print(f'input_batch.shape = {input_batch.shape}')
     mean_ensemble_spatial = predictor(input_batch)
     return mean_ensemble_spatial
@@ -76,7 +70,7 @@ scene_floor_dict = np.load(
     f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{split}_scene_floor_dict.npy',
     allow_pickle=True).item()
 
-#================================ load habitat env============================================
+# ================================ load habitat env============================================
 config = habitat.get_config(
     config_paths=cfg.GENERAL.LEARNED_MAP_GG_CONFIG_PATH)
 config.defrost()
@@ -147,8 +141,8 @@ with torch.no_grad():
         ax[1].set_title("depth")
         fig.tight_layout()
         plt.show()
-        #fig.savefig(f'{saved_folder}/step_{step}_obs.jpg')
-        #plt.close()
+        # fig.savefig(f'{saved_folder}/step_{step}_obs.jpg')
+        # plt.close()
 
         depth_abs = obs['depth'].reshape(cfg.MAP.IMG_SIZE, cfg.MAP.IMG_SIZE, 1)
         depth_abs = torch.tensor(depth_abs).to(device)
@@ -218,7 +212,7 @@ with torch.no_grad():
                              pose=_rel_pose,
                              abs_pose=torch.tensor(abs_poses, device=device))
 
-        #============ take action, move
+        # ============ take action, move
         t += 1
         '''
 		action, next_pose = LN.next_action(env, scene_height)

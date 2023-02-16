@@ -1,18 +1,10 @@
 import numpy as np
-import numpy.linalg as LA
-import cv2
-import matplotlib
 import matplotlib.pyplot as plt
-import math
-from math import cos, sin, acos, atan2, pi, floor, degrees
 import random
-from .utils.navigation_utils import change_brightness, SimpleRLEnv, get_obs_and_pose, get_obs_and_pose_by_action, get_metrics
-from .utils.baseline_utils import apply_color_to_map, pose_to_coords, gen_arrow_head_marker, read_map_npy, read_occ_map_npy, plus_theta_fn, Euclidean_Distance
+from .utils.navigation_utils import change_brightness, get_obs_and_pose, get_obs_and_pose_by_action, get_metrics
+from .utils.baseline_utils import apply_color_to_map, pose_to_coords, gen_arrow_head_marker, read_occ_map_npy, plus_theta_fn, Euclidean_Distance
 from .utils.map_utils_pcd_height import SemanticMap
 from .localNavigator_Astar import localNav_Astar
-import habitat
-import habitat_sim
-import random
 from core import cfg
 from .utils import frontier_utils as fr_utils
 from modeling.localNavigator_slam import localNav_slam
@@ -25,28 +17,26 @@ from collections import OrderedDict
 def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
            goal_pose, start_goal_geodesic_distance, saved_folder, device):
     """Major function for navigation.
-	
-	Takes in initialized habitat environment and start location.
-	Start exploring the environment.
-	Explore detected frontiers.
-	Use local navigator to reach the frontiers.
-	When reach the limited number of steps, compute the explored area and return the numbers.
-	"""
 
-    act_dict = {-1: 'Done', 0: 'stop', 1: 'forward', 2: 'left', 3: 'right'}
+        Takes in initialized habitat environment and start location.
+        Start exploring the environment.
+        Explore detected frontiers.
+        Use local navigator to reach the frontiers.
+        When reach the limited number of steps, compute the explored area and return the numbers.
+        """
 
-    #============================ get scene ins to cat dict
+    # ============================ get scene ins to cat dict
     scene = env.semantic_annotations()
     ins2cat_dict = {
         int(obj.id.split("_")[-1]): obj.category.index()
         for obj in scene.objects
     }
 
-    #=================================== start original navigation code ========================
+    # =================================== start original navigation code ========================
     np.random.seed(cfg.GENERAL.RANDOM_SEED)
     random.seed(cfg.GENERAL.RANDOM_SEED)
 
-    if True:  #cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
+    if True:  # cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
         if cfg.EVAL.SIZE == 'small':
             occ_map_npy = np.load(
                 f'output/semantic_map/{split}/{scene_name}/BEV_occupancy_map.npy',
@@ -63,7 +53,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
         if cfg.NAVI.PRUNE_SKELETON:
             skeleton = fr_utils.prune_skeleton(gt_occ_map, skeleton)
 
-    #===================================== load modules ==========================================
+    # ===================================== load modules ==========================================
     if cfg.NAVI.PERCEPTION == 'UNet_Potential':
         unet_model = UNet(
             n_channel_in=cfg.PRED.PARTIAL_MAP.INPUT_CHANNEL,
@@ -81,7 +71,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
 
             new_state_dict = OrderedDict()
             for k, v in checkpoint['state_dict'].items():
-                name = k[7:]  #remove 'module'
+                name = k[7:]  # remove 'module'
                 new_state_dict[name] = v
             unet_model.load_state_dict(new_state_dict)
 
@@ -105,7 +95,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
     action_lst = []
     agent_episode_distance = 0.0
 
-    #===================================== setup the start location ===============================#
+    # ===================================== setup the start location ===============================#
     goal_coord = pose_to_coords((goal_pose[0], -goal_pose[1]), pose_range,
                                 coords_range, WH)
     agent_pos = np.array([start_pose[0], scene_height,
@@ -152,7 +142,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
         while step < cfg.NAVI.NUM_STEPS:
             print(f'step = {step}')
 
-            #=============================== get agent global pose on habitat env ========================#
+            # =============================== get agent global pose on habitat env ========================#
             pose = pose_list[-1]
             print(f'agent position = {pose[:2]}, angle = {pose[2]}')
             agent_map_pose = (pose[0], -pose[1], -pose[2])
@@ -166,15 +156,15 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
 
             if MODE_FIND_SUBGOAL:
                 observed_occupancy_map, gt_occupancy_map, observed_area_flag, built_semantic_map = \
-                 semMap_module.get_observed_occupancy_map(agent_map_pose)
+                    semMap_module.get_observed_occupancy_map(agent_map_pose)
 
-                #======================= check if goal point is reachable =============================
+                # ======================= check if goal point is reachable =============================
                 if LN.evaluate_point_goal_reachable(goal_coord, agent_map_pose,
                                                     observed_occupancy_map):
                     subgoal_coords = goal_coord
                     MODE_FIND_GOAL = True
                     chosen_frontier = None
-                #============================== find the nearest frontier ==========================
+                # ============================== find the nearest frontier ==========================
                 else:
                     if frontiers is not None:
                         old_frontiers = frontiers
@@ -222,15 +212,10 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
 
                 MODE_FIND_SUBGOAL = False
 
-            #============================================= visualize semantic map ===========================================#
+            # ============================================= visualize semantic map ===========================================#
             if cfg.NAVI.FLAG_VISUALIZE_MIDDLE_TRAJ:
-                #==================================== visualize the path on the map ==============================
-                #built_semantic_map, observed_area_flag, _ = semMap_module.get_semantic_map()
 
-                #color_built_semantic_map = apply_color_to_map(built_semantic_map)
-                #color_built_semantic_map = change_brightness(color_built_semantic_map, observed_area_flag, value=60)
-
-                #=================================== visualize the agent pose as red nodes =======================
+                # =================================== visualize the agent pose as red nodes =======================
                 x_coord_lst, z_coord_lst, theta_lst = [], [], []
                 for cur_pose in traverse_lst:
                     x_coord, z_coord = pose_to_coords(
@@ -240,7 +225,6 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
                     z_coord_lst.append(z_coord)
                     theta_lst.append(cur_pose[2])
 
-                #'''
                 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
                 ax.imshow(observed_occupancy_map, cmap='gray')
                 marker, scale = gen_arrow_head_marker(theta_lst[-1])
@@ -286,24 +270,21 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
 
                 fig.tight_layout()
                 plt.title('observed area')
-                #plt.show()
+                # plt.show()
                 fig.savefig(f'{saved_folder}/step_{step}_semmap.jpg')
                 plt.close()
-                #assert 1==2
-                #'''
 
-            #===================================== check if exploration is done ========================
+            # ===================================== check if exploration is done ========================
             if (chosen_frontier is None) and (not MODE_FIND_GOAL):
                 print(
                     'There are no more frontiers to explore. Stop navigation.')
                 break
 
-            #====================================== take next action ================================
-            act, act_seq = LS.plan_to_reach_subgoal(agent_map_pose,
-                                                    subgoal_coords,
-                                                    observed_occupancy_map)
-            #print(f'subgoal_coords = {subgoal_coords}')
-            #print(f'action = {act_dict[act]}')
+            # ====================================== take next action ================================
+            act, _ = LS.plan_to_reach_subgoal(agent_map_pose,
+                                              subgoal_coords,
+                                              observed_occupancy_map)
+
             action_lst.append(act)
 
             if act == -1 or act == 0:  # finished navigating to the subgoal
@@ -352,9 +333,9 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
             f'running into a Bug running navigation. scene_name={scene_name}, episode_id={episode_id}'
         )
 
-    #============================================ Finish exploration =============================================
+    # ============================================ Finish exploration =============================================
     if cfg.NAVI.FLAG_VISUALIZE_FINAL_TRAJ:
-        #==================================== visualize the path on the map ==============================
+        # ==================================== visualize the path on the map ==============================
         built_semantic_map, observed_area_flag, _ = semMap_module.get_semantic_map(
         )
 
@@ -363,7 +344,7 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
                                                      observed_area_flag,
                                                      value=60)
 
-        #=================================== visualize the agent pose as red nodes =======================
+        # =================================== visualize the agent pose as red nodes =======================
         x_coord_lst, z_coord_lst, theta_lst = [], [], []
         for cur_pose in traverse_lst:
             x_coord, z_coord = pose_to_coords((cur_pose[0], cur_pose[1]),
@@ -372,7 +353,6 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
             z_coord_lst.append(z_coord)
             theta_lst.append(cur_pose[2])
 
-        #'''
         fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(25, 10))
         ax[0].imshow(observed_occupancy_map, cmap='gray')
         marker, scale = gen_arrow_head_marker(theta_lst[-1])
@@ -411,13 +391,11 @@ def nav_DP(split, env, episode_id, scene_name, scene_height, start_pose,
 
         fig.tight_layout()
         plt.title('observed area')
-        #plt.show()
+        # plt.show()
         fig.savefig(f'{saved_folder}/final_semmap.jpg')
         plt.close()
-        #assert 1==2
-        #'''
 
-    #====================================== compute statistics =================================
+    # ====================================== compute statistics =================================
     if cfg.NAVI.PERCEPTION == 'UNet_Potential':
         del unet_model
         del checkpoint

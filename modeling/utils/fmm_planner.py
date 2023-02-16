@@ -1,9 +1,6 @@
-import cv2, ctypes, logging, os, numpy as np, pickle
+import numpy as np
 from numpy import ma
-from collections import OrderedDict
-from skimage.morphology import binary_closing, disk
-import scipy, skfmm
-import matplotlib.pyplot as plt
+import skfmm
 
 step_size = 5
 num_rots = 12
@@ -53,9 +50,8 @@ class FMMPlanner():
         boundary_limits = np.array(traversible.shape)[::-1]
         x, y, t = state
         out_states = []
-        cost_start = goal_dist[int(y), int(x)]  #Actual distance in cm.
-        #print(f'state = {state}')
-        #print(f'cost_start = {cost_start}')
+        cost_start = goal_dist[int(y), int(x)]  # Actual distance in cm.
+
         collision_reward = 0
         for i in range(len(u_list)):
             action = u_list[i]
@@ -129,7 +125,7 @@ class FMMPlanner():
                 best_list = a_list
                 best_reward = rew
                 state_list = (st_lst)
-            if False:  #rew > 4: #self.env.dilation_cutoff:
+            if False:  # rew > 4: #self.env.dilation_cutoff:
                 current_margin = self.get_obst_dist(st_lst[-1])
                 if current_margin > max_margin:
                     max_margin = current_margin
@@ -166,56 +162,3 @@ class FMMPlanner():
     def get_action(self, state):
         _ = self.find_best_action_set(state, False, 0)
         return _[0][0], _[1][0], _[0]
-        # import pdb; pdb.set_trace()
-
-
-'''
-def main():
-    im = cv2.imread('after.png', cv2.IMREAD_UNCHANGED)
-    # im = im > 127
-    y, x = np.where(im)
-    planner = FMMPlanner(im)
-    fig, ax = plt.subplots()
-    # ax = ax[::-1]
-    rng = np.random.RandomState(1)
-    goal_ind = rng.choice(y.size)
-    start_ind = rng.choice(y.size)
-    goal = [350, 222]
-    state = [317, 173, 59.881]
-    planner.set_goal(goal)
-    ax.imshow(im * 1., vmin=-0.5, vmax=1.5)
-    ax.plot(goal[0], goal[1], 'rx')
-    ax.plot(state[0], state[1], 'rs')
-    states = []
-    for i in range(1000):
-        a, state = planner.get_action(state)
-        states.append(state)
-        if a == 0:
-            break
-    states = np.array(states)
-    ax.plot(states[:, 0], states[:, 1], 'r.')
-    # fig, axes = accurate_map.subplot(plt, (2,2), (10,10))
-    # axes = axes[::-1]
-    # rng = np.random.RandomState(1)
-    # for ax in axes:
-    #     goal_ind = rng.choice(y.size)
-    #     start_ind = rng.choice(y.size)
-    #     goal = [x[goal_ind], y[goal_ind]]
-    #     state = [x[start_ind], y[start_ind], 0]
-    #     planner.set_goal(goal)
-    #     ax.imshow(im*1., vmin=-0.5, vmax=1.5)
-    #     ax.plot(goal[0], goal[1], 'rx')
-    #     ax.plot(state[0], state[1], 'rs')
-    #     states = []
-    #     for i in range(1000):
-    #         a, state = planner.get_action(state)
-    #         states.append(state)
-    #         if a == 0:
-    #             break
-    #     states = np.array(states)
-    #     ax.plot(states[:,0], states[:,1], 'r.')
-    fig.savefig('fmm.png', bbox_inches='tight', pad_inches=0)
-
-if __name__ == '__main__':
-    main()
-'''

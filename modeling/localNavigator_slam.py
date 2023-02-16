@@ -1,5 +1,3 @@
-import numpy as np, cv2, imageio
-import os
 from .utils.fmm_planner import FMMPlanner
 import skimage
 import matplotlib.pyplot as plt
@@ -67,25 +65,23 @@ class localNav_slam(object):
 
     def plan_to_reach_subgoal(self, agent_map_pose, subgoal_coords, occ_map):
         '''
-		# check collision
-		if self.current_loc is not None and self.last_act == 0: # last action is moving forward
-			if self.check_drift(agent_map_pose) and len(self.recovery_actions) == 0:
-				if self.num_resets == 6:
-					print(f'!! collision detected, entering recovery actions ...')
-					num_rots = int(np.round(180 / self.dt))
-					self.recovery_actions = [1]*num_rots + [0]*6
-					self.flag_collision = True
-					self.num_resets = 0
-				else:
-					print(f'!! collision detected, do nothing ...')
-					self.num_resets += 1
-		'''
+                # check collision
+                if self.current_loc is not None and self.last_act == 0: # last action is moving forward
+                        if self.check_drift(agent_map_pose) and len(self.recovery_actions) == 0:
+                                if self.num_resets == 6:
+                                        print(f'!! collision detected, entering recovery actions ...')
+                                        num_rots = int(np.round(180 / self.dt))
+                                        self.recovery_actions = [1]*num_rots + [0]*6
+                                        self.flag_collision = True
+                                        self.num_resets = 0
+                                else:
+                                        print(f'!! collision detected, do nothing ...')
+                                        self.num_resets += 1
+                '''
 
-        #============================ collision check ===========================
+        # ============================ collision check ===========================
         if self.current_loc is not None and self.last_act == 0:
-            #if True:
             x1, y1, t1 = self.current_loc
-            #t1 = -t1
             x2, y2, _ = agent_map_pose
             buf = 4
             length = 2
@@ -99,19 +95,14 @@ class localNav_slam(object):
             else:
                 self.col_width = 1
 
-            #length = 4
-            #self.col_width = 20
-            #buf = 10
-
-            if self.check_drift(agent_map_pose):  #collison
-                #if True:
+            if self.check_drift(agent_map_pose):  # collison
+                # if True:
                 print(f'!! collision detected, do nothing ...')
                 self.flag_collision = True
                 width = self.col_width
                 for i in range(length):
                     for j in range(width):
-                        #wx = x1 + 0.05 * ((i + buf) * np.sin(t1) + (j - width // 2) * np.cos(t1))
-                        #wy = y1 + 0.05 * ((i + buf) * np.cos(t1) - (j - width // 2) * np.sin(t1))
+
                         wx = x1 + 0.05 * (i + buf) * np.sin(t1) + 0.05 * (
                             j - width // 2) * np.cos(t1)
                         wy = y1 + 0.05 * (i + buf) * np.cos(t1) - 0.05 * (
@@ -121,7 +112,7 @@ class localNav_slam(object):
                                                      self.WH)
                         self.collision_map[cell_coords[1], cell_coords[0]] = 1
 
-        #===========================================================================
+        # ===========================================================================
         self.current_loc = agent_map_pose
 
         subgoal_pose = pxl_coords_to_pose(subgoal_coords, self.pose_range,
@@ -134,9 +125,9 @@ class localNav_slam(object):
         theta = (theta - .5 * pi)
         state = np.array([agent_coords[0], agent_coords[1], theta])
 
-        #=========================== update traversible map =========================
+        # =========================== update traversible map =========================
 
-        ## dilate the obstacle in the configuration space
+        # dilate the obstacle in the configuration space
         obstacle = (occ_map == cfg.FE.COLLISION_VAL)
         if cfg.NAVI.GT_OCC_MAP_TYPE == 'PCD_HEIGHT':
             traversible = skimage.morphology.binary_dilation(
@@ -145,24 +136,21 @@ class localNav_slam(object):
             traversible = (obstacle != True)
         traversible_original = traversible.copy()
 
-        ## add the collision map
+        # add the collision map
         traversible[self.collision_map == 1] = 0
 
-        ## add visited map
+        # add visited map
         traversible[self.visited == 1] = 1
 
-        ## add current loc
+        # add current loc
         traversible[agent_coords[1] - 1:agent_coords[1] + 2,
                     agent_coords[0] - 1:agent_coords[0] + 2] = 1
 
-        ## add goal loc
+        # add goal loc
         traversible[subgoal_coords[1] - 1:subgoal_coords[1] + 2,
                     subgoal_coords[0] - 1:subgoal_coords[0] + 2] = 1
 
-        #traversible_locs = skimage.morphology.binary_dilation(self.visited, self.selem) == True
-        #traversible = np.logical_or(traversible_locs, traversible)
-
-        #'''
+        # '''
         if self.flag_collision:
             if False:
                 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(25, 10))
@@ -186,9 +174,9 @@ class localNav_slam(object):
                 plt.title('observed area')
                 plt.show()
             self.flag_collision = False
-        #'''
+        # '''
 
-        #================================== planning =================================
+        # ================================== planning =================================
         planner = FMMPlanner(traversible, 360 // self.dt)
         goal_loc_int = np.array(subgoal_coords).astype(np.int32)
         reachable = planner.set_goal(goal_loc_int)
@@ -204,26 +192,6 @@ class localNav_slam(object):
             a = 0
         elif a == 0:
             a = 3
-        '''
-		if a == 3:
-			fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(25, 10))
-			ax[0].imshow(traversible_original, cmap='gray')
-			marker, scale = gen_arrow_head_marker(agent_map_pose[2])
-			ax[0].scatter(agent_coords[0], agent_coords[1], marker=marker, s=(30*scale)**2, c='red', zorder=5)
-			ax[1].imshow(traversible, cmap='gray')
-			ax[2].imshow(self.collision_map)
-			ax[2].scatter(agent_coords[0], agent_coords[1], marker=marker, s=(10*scale)**2, c='red', zorder=5)
-			fig.tight_layout()
-			plt.title('observed area')
-			plt.show()
-		'''
-        '''
-		# still in the recovery process
-		if len(self.recovery_actions) > 0:
-			a = self.recovery_actions[0]
-			self.recovery_actions = self.recovery_actions[1:]
-			print(f'--execute recovery action {a}')
-		'''
 
         self.act_seq = act_seq
         self.last_act = a
@@ -233,22 +201,8 @@ class localNav_slam(object):
 
     def plan_to_reach_frontier_for_fig(self, agent_map_pose, chosen_frontier,
                                        occ_map):
-        '''
-		# check collision
-		if self.current_loc is not None and self.last_act == 0: # last action is moving forward
-			if self.check_drift(agent_map_pose) and len(self.recovery_actions) == 0:
-				if self.num_resets == 6:
-					print(f'!! collision detected, entering recovery actions ...')
-					num_rots = int(np.round(180 / self.dt))
-					self.recovery_actions = [1]*num_rots + [0]*6
-					self.flag_collision = True
-					self.num_resets = 0
-				else:
-					print(f'!! collision detected, do nothing ...')
-					self.num_resets += 1
-		'''
 
-        #===========================================================================
+        # ===========================================================================
         self.current_loc = agent_map_pose
         fron_centroid_coords = (int(chosen_frontier.centroid[1]),
                                 int(chosen_frontier.centroid[0]))
@@ -259,14 +213,14 @@ class localNav_slam(object):
 
         agent_coords = pose_to_coords(agent_map_pose, self.pose_range,
                                       self.coords_range, self.WH)
-        #self.mark_on_map(agent_coords)
+        # self.mark_on_map(agent_coords)
         theta = agent_map_pose[2]
         theta = (theta - .5 * pi)
         state = np.array([agent_coords[0], agent_coords[1], theta])
 
-        #=========================== update traversible map =========================
+        # =========================== update traversible map =========================
 
-        ## dilate the obstacle in the configuration space
+        # dilate the obstacle in the configuration space
         obstacle = (occ_map == cfg.FE.COLLISION_VAL)
         if cfg.NAVI.GT_OCC_MAP_TYPE == 'PCD_HEIGHT':
             traversible = skimage.morphology.binary_dilation(
@@ -275,24 +229,21 @@ class localNav_slam(object):
             traversible = (obstacle != True)
         traversible_original = traversible.copy()
 
-        ## add the collision map
+        # add the collision map
         traversible[self.collision_map == 1] = 0
 
-        ## add visited map
+        # add visited map
         traversible[self.visited == 1] = 1
 
-        ## add current loc
+        # add current loc
         traversible[agent_coords[1] - 1:agent_coords[1] + 2,
                     agent_coords[0] - 1:agent_coords[0] + 2] = 1
 
-        ## add goal loc
+        # add goal loc
         traversible[subgoal_coords[1] - 1:subgoal_coords[1] + 2,
                     subgoal_coords[0] - 1:subgoal_coords[0] + 2] = 1
 
-        #traversible_locs = skimage.morphology.binary_dilation(self.visited, self.selem) == True
-        #traversible = np.logical_or(traversible_locs, traversible)
-
-        #'''
+        # '''
         if self.flag_collision:
             if False:
                 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(25, 10))
@@ -316,9 +267,9 @@ class localNav_slam(object):
                 plt.title('observed area')
                 plt.show()
             self.flag_collision = False
-        #'''
+        # '''
 
-        #================================== planning =================================
+        # ================================== planning =================================
         planner = FMMPlanner(traversible, 360 // self.dt)
         goal_loc_int = np.array(subgoal_coords).astype(np.int32)
         reachable = planner.set_goal(goal_loc_int)
@@ -334,26 +285,6 @@ class localNav_slam(object):
             a = 0
         elif a == 0:
             a = 3
-        '''
-		if a == 3:
-			fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(25, 10))
-			ax[0].imshow(traversible_original, cmap='gray')
-			marker, scale = gen_arrow_head_marker(agent_map_pose[2])
-			ax[0].scatter(agent_coords[0], agent_coords[1], marker=marker, s=(30*scale)**2, c='red', zorder=5)
-			ax[1].imshow(traversible, cmap='gray')
-			ax[2].imshow(self.collision_map)
-			ax[2].scatter(agent_coords[0], agent_coords[1], marker=marker, s=(10*scale)**2, c='red', zorder=5)
-			fig.tight_layout()
-			plt.title('observed area')
-			plt.show()
-		'''
-        '''
-		# still in the recovery process
-		if len(self.recovery_actions) > 0:
-			a = self.recovery_actions[0]
-			self.recovery_actions = self.recovery_actions[1:]
-			print(f'--execute recovery action {a}')
-		'''
 
         self.act_seq = act_seq
         self.last_act = a

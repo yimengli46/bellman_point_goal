@@ -1,16 +1,11 @@
 import numpy as np
-import numpy.linalg as LA
-import cv2
 import matplotlib.pyplot as plt
-import random
 from core import cfg
 import torch.utils.data as data
 import torch
 import torch.nn.functional as F
-from random import Random
 import os
 import glob
-import pickle
 from modeling.utils.baseline_utils import apply_color_to_map
 import bz2
 import _pickle as cPickle
@@ -50,7 +45,7 @@ class MP3DSceneDataset(data.Dataset):
         # there are class 99 in the sem map
         M_p[1] = np.where(M_p[1] >= cfg.SEM_MAP.GRID_CLASS_SIZE, 0, M_p[1])
 
-        #=================================== visualize M_p =========================================
+        # =================================== visualize M_p =========================================
         if cfg.PRED.PARTIAL_MAP.FLAG_VISUALIZE_PRED_LABELS:
             occ_map_Mp = M_p[0]
             sem_map_Mp = M_p[1]
@@ -125,7 +120,7 @@ class MP3DSceneDataset(data.Dataset):
             fig.tight_layout()
             plt.show()
 
-        #============ combine the input and output
+        # ============ combine the input and output
         U_all = np.stack((U_PS, U_RS, U_RE), axis=0)  # 3 x H x W
         mask_all = np.stack((mask_PS, mask_RS, mask_RE), axis=0)  # 3 x H x W
         # rescale the q_G
@@ -133,14 +128,13 @@ class MP3DSceneDataset(data.Dataset):
         q_G[0, :, :] *= 1. / (cfg.PRED.PARTIAL_MAP.INPUT_WH[0] / 2)
         q_G[1, :, :] *= 1. / (cfg.PRED.PARTIAL_MAP.INPUT_WH[1] / 2)
 
-        #================= convert to tensor=================
+        # ================= convert to tensor=================
         tensor_Mp = torch.tensor(M_p, dtype=torch.long)
         tensor_U = torch.tensor(U_all, dtype=torch.float32)
         tensor_qG = torch.tensor(q_G, dtype=torch.float32)
         tensor_mask = torch.tensor(mask_all, dtype=torch.bool)
 
-        #print(f'tensor_Mp.max = {torch.max(tensor_Mp)}')
-        #================= convert input tensor into one-hot vector===========================
+        # ================= convert input tensor into one-hot vector===========================
         tensor_Mp_occ = tensor_Mp[0]  # H x W
         tensor_Mp_occ = F.one_hot(tensor_Mp_occ,
                                   num_classes=3).permute(2, 0, 1)  # 3 x H x W
@@ -176,12 +170,12 @@ def get_all_scene_dataset(split, scene_list, data_folder):
 
 def my_collate(batch):
     output_dict = {}
-    #==================================== for input ==================================
+    # ==================================== for input ==================================
     out = None
     batch_input = [dict['input'] for dict in batch]
     output_dict['input'] = torch.stack(batch_input, 0)
 
-    #==================================== for output ==================================
+    # ==================================== for output ==================================
     out = None
     batch_output = [dict['output'] for dict in batch]
     output_dict['output'] = torch.stack(batch_output, 0)

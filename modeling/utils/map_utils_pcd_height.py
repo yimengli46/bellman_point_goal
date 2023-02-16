@@ -1,14 +1,8 @@
 import numpy as np
-import numpy.linalg as LA
-import cv2
 import matplotlib.pyplot as plt
-import math
-from math import cos, sin, acos, atan2, pi, floor
-from .baseline_utils import project_pixels_to_world_coords, convertPanopSegToSSeg, apply_color_to_map, pose_to_coords, convertInsSegToSSeg
-from .baseline_utils import pxl_coords_to_pose
+from .baseline_utils import project_pixels_to_world_coords, apply_color_to_map, pose_to_coords, convertInsSegToSSeg
 from core import cfg
 from .build_map_utils import find_first_nonzero_elem_per_row
-from timeit import default_timer as timer
 from skimage import morphology
 import scipy.ndimage
 from skimage.draw import line, circle_perimeter
@@ -63,7 +57,6 @@ class SemanticMap:
         self.scene_name = scene_name
         self.cell_size = cfg.SEM_MAP.CELL_SIZE
         self.detector = cfg.NAVI.DETECTOR
-        #self.panop_pred = PanopPred()
         self.pose_range = pose_range
         self.coords_range = coords_range
         self.WH = WH
@@ -74,9 +67,9 @@ class SemanticMap:
 
         self.ins2cat_dict = ins2cat_dict
 
-        #===================================== load gt occupancy map =============================
+        # ===================================== load gt occupancy map =============================
         # load occupancy map
-        if True:  #cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
+        if True:  # cfg.NAVI.GT_OCC_MAP_TYPE == 'NAV_MESH':
             if cfg.EVAL.SIZE == 'small':
                 occ_map_path = f'output/semantic_map/{self.split}/{self.scene_name}'
             elif cfg.EVAL.SIZE == 'large':
@@ -118,7 +111,7 @@ class SemanticMap:
             dtype=np.int16)  # x, y, z, C
         print(f'self.four_dim_grid.shape = {self.four_dim_grid.shape}')
 
-        #============================================
+        # ============================================
         self.H, self.W = len(self.z_grid), len(self.x_grid)
 
         self.neighborhood_history = np.zeros(
@@ -135,20 +128,16 @@ class SemanticMap:
             # load rgb image, depth and sseg
             rgb_img = obs['rgb']
             depth_img = obs['depth'][:, :, 0]
-            #print(f'depth_img.shape = {depth_img.shape}')
+
             InsSeg_img = obs["semantic"]
             sseg_img = convertInsSegToSSeg(InsSeg_img, self.ins2cat_dict)
             sem_map_pose = (pose[0], -pose[1], -pose[2])  # x, z, theta
 
-            agent_coords = pose_to_coords(sem_map_pose, self.pose_range,
-                                          self.coords_range, self.WH)
-
-            #print('pose = {}'.format(pose))
             rgb_lst.append(rgb_img)
             depth_lst.append(depth_img)
             sseg_lst.append(sseg_img)
 
-            #'''
+            # '''
             if cfg.SEM_MAP.FLAG_VISUALIZE_EGO_OBS and cfg.NAVI.HFOV == 90:
                 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
                 ax[0].imshow(rgb_img)
@@ -166,10 +155,10 @@ class SemanticMap:
                 ax[2].set_title("depth")
                 fig.tight_layout()
                 plt.show()
-                #fig.savefig(f'{saved_folder}/step_{step}_obs.jpg')
-                #plt.close()
+                # fig.savefig(f'{saved_folder}/step_{step}_obs.jpg')
+                # plt.close()
 
-            #'''
+            # '''
             if cfg.NAVI.HFOV == 90:
                 xyz_points, sseg_points = project_pixels_to_world_coords(
                     sseg_img,
@@ -196,9 +185,6 @@ class SemanticMap:
                     resolution_y=256,
                     theta_x=0.,
                     ignored_classes=self.IGNORED_CLASS)
-
-            #print(f'xyz_points.shape = {xyz_points.shape}')
-            #print(f'sseg_points.shape = {sseg_points.shape}')
 
             mask_X = np.logical_and(xyz_points[0, :] > self.min_X,
                                     xyz_points[0, :] < self.max_X)
@@ -246,7 +232,7 @@ class SemanticMap:
             0:self.THRESHOLD_HIGH,
             self.coords_range[0]:self.coords_range[2] + 1, :]
 
-        #======================= build semantic map ===============================
+        # ======================= build semantic map ===============================
         # argmax over the category axis
         zyx_grid = np.argmax(smaller_four_dim_grid, axis=3)
         # swap y dim to the last axis
@@ -257,7 +243,7 @@ class SemanticMap:
         semantic_map = find_first_nonzero_elem_per_row(zxy_grid)
         semantic_map = semantic_map.reshape(L, M)
 
-        #============================= build occupancy map ===================================
+        # ============================= build occupancy map ===================================
         # find explored region
         observed_area_flag = smaller_four_dim_grid.sum(axis=(1, 3)) > 0
         cells_in_occupied_range = smaller_four_dim_grid[:, self.
@@ -273,30 +259,6 @@ class SemanticMap:
         mask_free = np.logical_and(mask_occupied == False, observed_area_flag)
         occupancy_map[mask_free] = cfg.FE.FREE_VAL
         occupancy_map[mask_occupied] = cfg.FE.COLLISION_VAL
-        '''
-		# add occupied cells
-		for pose in self.occupied_poses:
-			coords = pose_to_coords(pose,
-									self.pose_range,
-									self.coords_range,
-									self.WH,
-									flag_cropped=True)
-			print(f'occupied cell coords = {coords}')
-			occupancy_map[coords[1], coords[0]] = cfg.FE.COLLISION_VAL
-		'''
-        '''
-		fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(200, 100))
-		# visualize gt semantic map
-		ax[0].imshow(semantic_map)
-		ax[0].get_xaxis().set_visible(False)
-		ax[0].get_yaxis().set_visible(False)
-		ax[0].set_title('semantic map')
-		ax[1].imshow(occupancy_map, cmap='gray')
-		ax[1].get_xaxis().set_visible(False)
-		ax[1].get_yaxis().set_visible(False)
-		ax[1].set_title('occupancy map')
-		plt.show()
-		'''
 
         return semantic_map, observed_area_flag, occupancy_map
 
@@ -308,7 +270,7 @@ class SemanticMap:
             0:self.THRESHOLD_HIGH,
             self.coords_range[0]:self.coords_range[2] + 1, :]
 
-        #======================= build semantic map ===============================
+        # ======================= build semantic map ===============================
         # argmax over the category axis
         zyx_grid = np.argmax(smaller_four_dim_grid, axis=3)
         # swap y dim to the last axis
@@ -319,7 +281,7 @@ class SemanticMap:
         semantic_map = find_first_nonzero_elem_per_row(zxy_grid)
         semantic_map = semantic_map.reshape(L, M)
 
-        #============================= build occupancy map ===================================
+        # ============================= build occupancy map ===================================
         if cfg.NAVI.GT_OCC_MAP_TYPE == 'PCD_HEIGHT':
             # find explored region
             observed_area_flag = smaller_four_dim_grid.sum(axis=(1, 3)) > 0
@@ -327,7 +289,7 @@ class SemanticMap:
                                                             THRESHOLD_LOW:self.
                                                             THRESHOLD_HIGH, :].sum(
                                                                 axis=(1, 3))
-            #print(f'cells_in_occupied_range.shape = {cells_in_occupied_range.shape}')
+
             occupancy_map = np.zeros(observed_area_flag.shape, dtype=np.int16)
             occupancy_map[observed_area_flag == False] = cfg.FE.UNOBSERVED_VAL
             mask_occupied = np.logical_and(
@@ -342,7 +304,7 @@ class SemanticMap:
             occupancy_map = self.gt_occupancy_map.copy()
             occupancy_map[observed_area_flag == False] = cfg.FE.UNOBSERVED_VAL
 
-        #============================== complement the region near the robot ====================
+        # ============================== complement the region near the robot ====================
         agent_coords = pose_to_coords(agent_map_pose, self.pose_range,
                                       self.coords_range, self.WH)
         # find the nearby cells coordinates
@@ -359,7 +321,7 @@ class SemanticMap:
             occupancy_map = np.where(complement_mask, self.gt_occupancy_map,
                                      occupancy_map)
 
-        #============================== dilate the unknown space ===============================
+        # ============================== dilate the unknown space ===============================
         mask_occupied = (occupancy_map == cfg.FE.COLLISION_VAL)
         mask_unknown = (occupancy_map == cfg.FE.UNOBSERVED_VAL)
         mask_unknown = scipy.ndimage.maximum_filter(mask_unknown, size=3)
@@ -367,7 +329,7 @@ class SemanticMap:
         occupancy_map = np.where(mask_unknown, cfg.FE.UNOBSERVED_VAL,
                                  occupancy_map)
 
-        #============================= fill in the holes in the known area =====================
+        # ============================= fill in the holes in the known area =====================
         mask_known = (occupancy_map != cfg.FE.UNOBSERVED_VAL)
         mask_known = morphology.remove_small_holes(mask_known,
                                                    10000,
@@ -375,35 +337,13 @@ class SemanticMap:
         mask_known[mask_occupied == 1] = 0
         occupancy_map = np.where(mask_known, cfg.FE.FREE_VAL, occupancy_map)
 
-        ##============================= add current loc =========================
+        # ============================= add current loc =========================
         occupancy_map[agent_coords[1] - 1:agent_coords[1] + 2,
                       agent_coords[0] - 1:agent_coords[0] +
                       2] = cfg.FE.FREE_VAL
         self.neighborhood_history[agent_coords[1] - 1:agent_coords[1] + 2,
                                   agent_coords[0] - 1:agent_coords[0] +
                                   2] = True
-        '''
-		fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(100, 100))
-		ax.imshow(occupancy_map, cmap='gray')
-		ax.get_xaxis().set_visible(False)
-		ax.get_yaxis().set_visible(False)
-		ax.set_title('occupancy_map')
-		plt.show()
-		'''
-        '''
-		#============================== dilate the obstacles for motion planning ================
-		mask_occupied = (occupancy_map == cfg.FE.COLLISION_VAL)
-		selem2 = morphology.disk(2)
-		mask_occupied = morphology.binary_dilation(mask_occupied, selem2)
-		occupancy_map = np.where(mask_occupied, cfg.FE.COLLISION_VAL, occupancy_map)
-		
-		#selem1 = morphology.disk(1)
-		#traversible_locs = morphology.binary_dilation(self.loc_on_map, selem1) == True
-		traversible_locs = self.loc_on_map
-		mask_free = (occupancy_map == cfg.FE.FREE_VAL)
-		mask_free = np.logical_or(traversible_locs, mask_free)
-		occupancy_map = np.where(mask_free, cfg.FE.FREE_VAL, occupancy_map)
-		'''
 
         observed_area_flag = (occupancy_map != cfg.FE.UNOBSERVED_VAL)
         gt_occupancy_map = self.gt_occupancy_map

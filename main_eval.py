@@ -2,8 +2,6 @@ import numpy as np
 from modeling.frontier_explore_DP import nav_DP
 from modeling.utils.baseline_utils import create_folder
 import habitat
-import habitat_sim
-from modeling.utils.navigation_utils import SimpleRLEnv, get_scene_name
 from core import cfg
 import argparse
 import torch
@@ -21,7 +19,7 @@ def main():
     cfg.merge_from_file(f'configs/{args.config}')
     cfg.freeze()
 
-    #=============================== basic setup =======================================
+    # =============================== basic setup =======================================
     split = 'test'
     if cfg.EVAL.SIZE == 'small':
         scene_floor_dict = np.load(
@@ -32,11 +30,10 @@ def main():
             f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/large_scale_{split}_scene_floor_dict.npy',
             allow_pickle=True).item()
 
-    #for env_scene in cfg.MAIN.TEST_SCENE_NO_FLOOR_LIST:
-    for env_scene in ['yqstnuAEVhm']:
-        #for env_scene in ['5ZKStnWn8Zo']:
+    for env_scene in cfg.MAIN.TEST_SCENE_NO_FLOOR_LIST:
+        # for env_scene in ['yqstnuAEVhm']:
 
-        #================================ load habitat env============================================
+        # ================================ load habitat env============================================
         config = habitat.get_config(
             config_paths=cfg.GENERAL.DATALOADER_CONFIG_PATH)
         config.defrost()
@@ -51,7 +48,7 @@ def main():
 
         device = torch.device('cuda:0')
 
-        #=============================== traverse each floor ===========================
+        # =============================== traverse each floor ===========================
         for floor_id in list(scene_dict.keys()):
             height = scene_dict[floor_id]['y']
             scene_name = f'{env_scene}_{floor_id}'
@@ -72,10 +69,8 @@ def main():
                     if len(testing_data) > 3:
                         testing_data = testing_data[:3]
 
-                #'''
                 results = {}
                 for idx, data in enumerate(testing_data):
-                    #for idx in range(1, 2):
                     data = testing_data[idx]
                     print(
                         f'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA EPS {idx} BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
@@ -106,7 +101,6 @@ def main():
                     results[idx] = result
 
                 np.save(f'{output_folder}/results_{scene_name}.npy', results)
-                #'''
 
         env.close()
 

@@ -2,19 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from core import cfg
 import scipy.ndimage
-import numpy as np
-import matplotlib.pyplot as plt
-from core import cfg
-import scipy.ndimage
-from .baseline_utils import pose_to_coords, apply_color_to_map, crop_map, spatial_transform_map, pxl_coords_to_pose
-from math import sqrt
+from .baseline_utils import apply_color_to_map, crop_map
 from operator import itemgetter
 import torch
-import cv2
 from skimage.morphology import skeletonize
 import sknw
 import networkx as nx
-from skimage.graph import MCP_Geometric as MCPG
 from skimage.graph import route_through_array
 import torch.nn.functional as F
 import math
@@ -58,22 +51,13 @@ def skeletonize_frontier_graph(component_occ_grid, skeleton):
     if np.sum(component_skeleton) > 0:
         component_G = sknw.build_sknw(component_skeleton)
 
-        #================= computed connected components =============================
+        # ================= computed connected components =============================
         list_ccs = [
             component_G.subgraph(c).copy()
             for c in nx.connected_components(component_G)
         ]
-        #print(f'len(list_ccs) = {len(list_ccs)}')
-        '''	
-		plt.imshow(component_occ_grid, cmap='gray')
-		for sub_G in set_ccs:
-			nodes = sub_G.nodes()
-			ps = np.array(nodes)
-			plt.plot(ps[:,1], ps[:,0], c=np.random.rand(3,))
-		plt.show()
-		'''
 
-        #====================== compute the cost of each component and then add them up
+        # ====================== compute the cost of each component and then add them up
         arr_cost_dall = np.zeros(len(list_ccs))
         arr_cost_din = np.zeros(len(list_ccs))
         arr_cost_dout = np.zeros(len(list_ccs))
@@ -81,7 +65,7 @@ def skeletonize_frontier_graph(component_occ_grid, skeleton):
             #print(f'sub_G has {len(sub_G.nodes)} nodes.')
             if len(sub_G.nodes) > 1:  # sub_G has more than one nodes
                 path = my_tsp(sub_G)
-                #=================== split path into d_in and d_out
+                # =================== split path into d_in and d_out
                 nodes = list(sub_G.nodes)
                 for i in range(len(path)):
                     if not nodes:
@@ -89,7 +73,7 @@ def skeletonize_frontier_graph(component_occ_grid, skeleton):
                         break
                     if path[i] in nodes:
                         nodes.remove(path[i])
-                #================== compute cost_din and cost_dout
+                # ================== compute cost_din and cost_dout
                 d_in = path[:index]
                 d_out = path[index - 1:]
                 cost_din = 0
@@ -122,13 +106,6 @@ def skeletonize_frontier_graph(component_occ_grid, skeleton):
 
 def skeletonize_frontier(component_occ_grid, skeleton):
     skeleton_component = np.where(component_occ_grid, skeleton, False)
-    '''
-	cp_component_occ_grid = component_occ_grid.copy().astype('int16')
-	cp_component_occ_grid[skeleton_component] = 3	
-	plt.imshow(cp_component_occ_grid)
-	
-	plt.show()
-	'''
 
     cost_din = max(np.sum(skeleton_component), 1)
     cost_dout = max(np.sum(skeleton_component), 1)
@@ -221,7 +198,7 @@ class Frontier(object):
 
     def __init__(self, points):
         """Initialized with a 2xN numpy array of points (the grid cell
-		coordinates of all points on frontier boundary)."""
+                coordinates of all points on frontier boundary)."""
         inds = np.lexsort((points[0, :], points[1, :]))
         sorted_points = points[:, inds]
 
@@ -244,29 +221,18 @@ class Frontier(object):
 
     @property
     def centroid(self):
-        #return self.get_centroid()
+        # return self.get_centroid()
         return self.get_frontier_point()
 
-    #'''
+    # '''
     def get_centroid(self):
         """Returns the point that is the centroid of the frontier"""
         centroid = np.mean(self.points, axis=1)
         return centroid
 
-    #'''
-    '''
-	def get_centroid(self):
-		#print(f'points.shape = {self.points.shape}')
-		points = self.points.transpose()
-		distMatrix = np.sum((points[:, np.newaxis, :] - points[np.newaxis, :, :]) ** 2, axis=-1)
-		centroid_idx = np.argmin(distMatrix.sum(axis=0))
-		centroid = self.points[:, centroid_idx]
-		return centroid
-	'''
-
     def get_frontier_point(self):
         """Returns the point that is on the frontier that is closest to the
-		actual centroid"""
+                actual centroid"""
         center_point = np.mean(self.points, axis=1)
         norm = np.linalg.norm(self.points - center_point[:, None], axis=0)
         ind = np.argmin(norm)
@@ -285,9 +251,9 @@ class Frontier(object):
 
 def mask_grid_with_frontiers(occupancy_grid, frontiers, do_not_mask=None):
     """Mask grid cells in the provided occupancy_grid with the frontier points
-	contained with the set of 'frontiers'. If 'do_not_mask' is provided, and
-	set to either a single frontier or a set of frontiers, those frontiers are
-	not masked."""
+        contained with the set of 'frontiers'. If 'do_not_mask' is provided, and
+        set to either a single frontier or a set of frontiers, those frontiers are
+        not masked."""
 
     if do_not_mask is not None:
         # Ensure that 'do_not_mask' is a set
@@ -308,7 +274,7 @@ def mask_grid_with_frontiers(occupancy_grid, frontiers, do_not_mask=None):
 
 def get_frontiers(occupancy_grid):
     """ detect frontiers from occupancy_grid. 
-	"""
+        """
 
     filtered_grid = scipy.ndimage.maximum_filter(
         occupancy_grid == cfg.FE.UNOBSERVED_VAL, size=3)
@@ -374,16 +340,16 @@ def update_frontier_set(old_set, new_set, max_dist=6, chosen_frontier=None):
         for af in added_frontier_set:
             nearest_frontier, nearest_frontier_dist = _get_nearest_feasible_frontier(
                 af, outgoing_frontier_set)
-            #print(f'nearest_frontier_dist = {nearest_frontier_dist}')
+
             if nearest_frontier_dist < max_dist:
                 '''
-				# this frontier R and D is not computed correctly
-				if af.R < 1.1 and af.D < 1.1:
-					af.R = nearest_frontier.R
-					af.D = nearest_frontier.D
-					af.Din = nearest_frontier.Din 
-					af.Dout = nearest_frontier.Dout
-				'''
+                                # this frontier R and D is not computed correctly
+                                if af.R < 1.1 and af.D < 1.1:
+                                        af.R = nearest_frontier.R
+                                        af.D = nearest_frontier.D
+                                        af.Din = nearest_frontier.Din 
+                                        af.Dout = nearest_frontier.Dout
+                                '''
 
                 if nearest_frontier == chosen_frontier:
                     af.is_from_last_chosen = True
@@ -416,8 +382,6 @@ def inter_local_map_global_map(local_map, global_map, robot_center):
     trans = robot_center - local_map_center
     left_corner_local += trans
     right_corner_local += trans
-
-    #print(f'local: {left_corner_local}, {right_corner_local}')
 
     # find intersection
     x0_global = max(left_corner_local[0], left_corner_global[0])
@@ -476,7 +440,6 @@ def compute_frontier_potential(frontiers,
                             component, skeleton)
                         fron.R_E = cost_dall
                         fron.R_S = 0.
-                    #print(f'P_S = {fron.P_S}, R_S = {fron.R_S}, R_E = {fron.R_E}')
 
                     if cfg.NAVI.FLAG_VISUALIZE_FRONTIER_POTENTIAL:
                         fig, ax = plt.subplots(nrows=1,
@@ -512,12 +475,11 @@ def compute_frontier_potential(frontiers,
 
     elif cfg.NAVI.PERCEPTION == 'UNet_Potential':
         agent_coord = LN.get_agent_coords(agent_map_pose)
-        #============================================ prepare input data ====================================
+        # ============================================ prepare input data ====================================
         sem_map = np.where(sem_map >= cfg.SEM_MAP.GRID_CLASS_SIZE, 0, sem_map)
 
         M_p = np.stack((occupancy_grid, sem_map), axis=0)
         tensor_M_p = torch.tensor(M_p).float().unsqueeze(0)
-        #print(f'tensor_M_p.shape = {tensor_M_p.shape}')
 
         _, H, W = M_p.shape
         q_G = np.zeros((2, H, W), dtype=np.int16)
@@ -535,7 +497,7 @@ def compute_frontier_potential(frontiers,
         q_G[1, :, :] *= 1. / (cfg.PRED.PARTIAL_MAP.INPUT_WH[1] / 2)
         tensor_q_G = torch.tensor(q_G).float().unsqueeze(0)
 
-        #================== crop out the map centered at the agent ==========================
+        # ================== crop out the map centered at the agent ==========================
 
         Wby2, Hby2 = W // 2, H // 2
         tform_trans = torch.Tensor(
@@ -550,7 +512,7 @@ def compute_frontier_potential(frontiers,
         tensor_Mp = tensor_M_p.long().squeeze(0)
         tensor_qG = tensor_q_G.float().squeeze(0)
 
-        #==================== convert into one hot vector ==================================
+        # ==================== convert into one hot vector ==================================
         tensor_Mp_occ = tensor_Mp[0]  # H x W
         tensor_Mp_occ = F.one_hot(tensor_Mp_occ,
                                   num_classes=3).permute(2, 0, 1)  # 3 x H x W
@@ -567,8 +529,6 @@ def compute_frontier_potential(frontiers,
             tensor_Mp = tensor_Mp[0:3]
             tensor_input = torch.cat((tensor_Mp, tensor_qG), 0)
 
-        #print(f'tensor_input.shape = {tensor_input.shape}')
-
         tensor_input = tensor_input.unsqueeze(0).to(device)  # for batch
 
         with torch.no_grad():
@@ -584,16 +544,15 @@ def compute_frontier_potential(frontiers,
                             bbox_local[0]:bbox_local[2] + 1]
         output = results
 
-        #=========================== reshape output and mask out non zero points ===============================
+        # =========================== reshape output and mask out non zero points ===============================
 
         for fron in frontiers:
             points = fron.points.transpose()
             points_vals = output[points[:, 0], points[:, 1]]  # N, 4
-            #print(f'points_vals.shape = {points_vals.shape}')
+
             P_S = np.mean(points_vals[:, 0])
             R_S = np.mean(points_vals[:, 1])
             R_E = np.mean(points_vals[:, 2])
-            #print(f'P_S = {P_S}, R_S = {R_S}, R_E = {R_E}')
 
             if R_S <= 0:
                 R_S = route_through_array(
@@ -662,21 +621,17 @@ def nearest_value_og(occupancy_grid, i, j, threshold=4):
 def get_frontier_nearest_to_goal(agent_pose, frontiers, goal_coord, LN,
                                  occupancy_map):
     """ select frontier nearest to the point goal
-	used for the 'Optmistic' strategy.
-	"""
+        used for the 'Optmistic' strategy.
+        """
     agent_coord = LN.get_agent_coords(agent_pose)
 
     binary_occupancy_map = occupancy_map.copy()
-    #plt.imshow(binary_occupancy_map)
-    #plt.show()
+
     binary_occupancy_map[binary_occupancy_map ==
                          cfg.FE.UNOBSERVED_VAL] = cfg.FE.FREE_VAL
     binary_occupancy_map[binary_occupancy_map == cfg.FE.COLLISION_VAL] = 0
     binary_occupancy_map[binary_occupancy_map != 0] = 1
     binary_occupancy_map[binary_occupancy_map == 0] = 1000
-
-    #plt.imshow(binary_occupancy_map)
-    #plt.show()
 
     min_dist = 1e10
     min_fron = None
@@ -704,8 +659,8 @@ def get_frontier_nearest_to_goal(agent_pose, frontiers, goal_coord, LN,
 
 def get_the_nearest_frontier(frontiers, agent_pose, dist_occupancy_map, LN):
     """ select nearest frontier to the robot.
-	used for the 'FME' strategy.
-	"""
+        used for the 'FME' strategy.
+        """
     agent_coord = LN.get_agent_coords(agent_pose)
     min_L = 10000000
     min_frontier = None
@@ -727,8 +682,8 @@ def get_the_nearest_frontier(frontiers, agent_pose, dist_occupancy_map, LN):
 def get_the_nearest_frontier_to_the_long_term_goal(frontiers,
                                                    long_term_goal_coords):
     """ select nearest frontier to the robot.
-	used for the 'FME' strategy.
-	"""
+        used for the 'FME' strategy.
+        """
     min_L = 10000000
     min_frontier = None
 
@@ -747,7 +702,7 @@ def get_the_nearest_frontier_to_the_long_term_goal(frontiers,
 
 def count_free_space_at_frontiers(frontiers, gt_occupancy_grid, area=10):
     """ compute the free space in the neighborhoadd of the frontier center.
-	"""
+        """
     H, W = gt_occupancy_grid.shape
     for fron in frontiers:
         centroid = (int(fron.centroid[1]), int(fron.centroid[0]))
@@ -756,28 +711,25 @@ def count_free_space_at_frontiers(frontiers, gt_occupancy_grid, area=10):
         y1 = max(0, centroid[1] - area)
         y2 = min(H, centroid[1] + area)
         fron_neigh = gt_occupancy_grid[y1:y2, x1:x2]
-        #print(f'centroid[0] = {centroid[0]}, y1 = {y1}, y2= {y2}, x1 = {x1}, x2 = {x2}')
-        #plt.imshow(fron_neigh)
-        #plt.show()
+
         fron.area_neigh = np.sum(fron_neigh == cfg.FE.FREE_VAL)
-        #print(f'fron.area_neigh = {fron.area_neigh}')
 
 
 def get_frontier_with_DP(frontiers, agent_pose, dist_occupancy_map, LN):
     """ select the frontier from frontiers with the Bellman Equation.
 
-	from agent_pose and the observed_occupancy_map, compute D and L.
-	"""
+        from agent_pose and the observed_occupancy_map, compute D and L.
+        """
     min_Q = 1e10
     min_frontier = None
     agent_coord = LN.get_agent_coords(agent_pose)
 
     for fron in frontiers:
-        #print('-------------------------------------------------------------')
+
         visited_frontiers = set()
         Q = compute_Q(agent_coord, fron, frontiers, visited_frontiers,
                       dist_occupancy_map)
-        #print(f'Q = {Q}, R_S = {fron.R_S}')
+
         if Q < min_Q:
             min_Q = Q
             min_frontier = fron
@@ -788,9 +740,9 @@ def get_frontier_with_DP(frontiers, agent_pose, dist_occupancy_map, LN):
 def compute_Q(agent_coord, target_frontier, frontiers, visited_frontiers,
               dist_occupancy_map):
     """ compute the Q values of the frontier 'target_frontier'"""
-    #print(f'agent_coord = {agent_coord}, target_frontier = {target_frontier.centroid}, steps = {steps}')
+
     Q = 0
-    #L = LN.compute_L(G, agent_coord, target_frontier)
+
     _, D = route_through_array(
         dist_occupancy_map, (agent_coord[1], agent_coord[0]),
         (int(target_frontier.centroid[0]), int(target_frontier.centroid[1])))
@@ -810,20 +762,18 @@ def compute_Q(agent_coord, target_frontier, frontiers, visited_frontiers,
                            visited_frontiers.copy(), dist_occupancy_map)
         if next_Q < min_next_Q:
             min_next_Q = next_Q
-    #print(f'min_next_Q = {min_next_Q}')
     Q += (1 - target_frontier.P_S) * (
         target_frontier.R_E / 5. * cfg.NAVI.STEP_RATIO + min_next_Q)
 
-    #print(f'Q = {Q}')
     return Q
 
 
 def select_top_frontiers(frontiers, top_n=5):
     """ select a few frontiers with the largest value.
 
-	The objective is to reduce the number of frontiers when using the 'DP' strategy.
-	top_n decides the number of frontiers to keep.
-	"""
+        The objective is to reduce the number of frontiers when using the 'DP' strategy.
+        top_n decides the number of frontiers to keep.
+        """
     if len(frontiers) <= top_n:
         return frontiers
 
@@ -843,14 +793,13 @@ def select_top_frontiers(frontiers, top_n=5):
 def get_frontier_with_DP_accel(frontiers, agent_pose, dist_occupancy_map,
                                goal_coord, LN):
     """ select the frontier from frontiers with the Bellman Equation.
-
-	from agent_pose and the observed_occupancy_map, compute D and L.
-	"""
+    from agent_pose and the observed_occupancy_map, compute D and L.
+    """
     agent_coord = LN.get_agent_coords(agent_pose)
 
     frontiers = list(frontiers)
 
-    #============ create distances
+    # ============ create distances
     goal_distances = {}
     for fron in frontiers:
         # compute dist from the frontier to the point goal
@@ -883,7 +832,7 @@ def get_frontier_with_DP_accel(frontiers, agent_pose, dist_occupancy_map,
     }
 
     cpp_cost, cpp_ordering = get_lowest_cost_ordering(frontiers, distances)
-    #print(f'len(cpp_ordering) = {len(cpp_ordering)}')
+
     return cpp_ordering[0]
 
 
@@ -904,7 +853,7 @@ def get_lowest_cost_ordering(subgoals, distances):
               for sp in itertools.permutations(subgoals, 2)}
     s_cpp = [
         lsp_accel.FrontierData(s.P_S, s.R_S, s.R_E, hash(s),
-                               False)  #s.is_from_last_chosen) 
+                               False)  # s.is_from_last_chosen)
         for s in subgoals
     ]
 

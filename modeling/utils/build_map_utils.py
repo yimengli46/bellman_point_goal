@@ -1,9 +1,6 @@
 import numpy as np
-import numpy.linalg as LA
 import cv2
 import matplotlib.pyplot as plt
-import math
-from math import cos, sin, acos, atan2, pi, floor
 from .baseline_utils import project_pixels_to_world_coords, apply_color_to_map, save_sem_map_through_plt
 from core import cfg
 
@@ -16,12 +13,7 @@ def find_first_nonzero_elem_per_row(mat):
 
     xv[mat == 0] = 0
     min_idx_nonzero_per_row = np.max(xv, axis=1).astype(int)
-    '''
-	print(f'min_idx_nonzero_per_row.shape = {min_idx_nonzero_per_row.shape}')
-	plt.hist(min_idx_nonzero_per_row, bins = [0,20,40,60,80,100]) 
-	plt.title("histogram") 
-	plt.show()
-	'''
+
     yv = yv[:, 0].astype(int)
 
     result = mat[yv, min_idx_nonzero_per_row]
@@ -74,9 +66,7 @@ class SemanticMap:
             dtype=np.int16)  # x, y, z, C
         print(f'self.four_dim_grid.shape = {self.four_dim_grid.shape}')
 
-        #assert 1==2
-
-        #===================================
+        # ===================================
         self.H, self.W = len(self.z_grid), len(self.x_grid)
         self.min_x_coord = self.W - 1
         self.max_x_coord = 0
@@ -91,7 +81,7 @@ class SemanticMap:
         print('pose = {}'.format(pose))
         print('sem_map_pose = {}'.format(sem_map_pose))
 
-        #'''
+        # '''
         if False:
             fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
             ax[0].imshow(rgb_img)
@@ -108,10 +98,10 @@ class SemanticMap:
             ax[2].set_title("depth")
             fig.tight_layout()
             plt.show()
-        #'''
+        # '''
 
-        xyz_points, sseg_points = project_pixels_to_world_coords(sseg_img, depth_img, sem_map_pose, \
-         gap=2, FOV=90, cx=128, cy=128, resolution_x=256, resolution_y=256, ignored_classes=self.IGNORED_CLASS)
+        xyz_points, sseg_points = project_pixels_to_world_coords(sseg_img, depth_img, sem_map_pose,
+                                                                 gap=2, FOV=90, cx=128, cy=128, resolution_x=256, resolution_y=256, ignored_classes=self.IGNORED_CLASS)
 
         mask_X = np.logical_and(xyz_points[0, :] > self.min_X,
                                 xyz_points[0, :] < self.max_X)
@@ -165,8 +155,6 @@ class SemanticMap:
         semantic_map = semantic_map.reshape(L, M)
         color_semantic_map = apply_color_to_map(semantic_map)
 
-        #plt.imshow(color_semantic_map)
-        #plt.show()
         if semantic_map.shape[0] > 0:
             save_sem_map_through_plt(
                 color_semantic_map,

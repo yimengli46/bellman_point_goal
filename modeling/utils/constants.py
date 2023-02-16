@@ -74,8 +74,8 @@ coco_categories_mapping = {
 }
 
 panopticSeg_mapping = {
-    ## thing list, originally the index and classes are same as Devendra's
-    ## changed by Yimeng, now align with Gibson obj list
+    # thing list, originally the index and classes are same as Devendra's
+    # changed by Yimeng, now align with Gibson obj list
     57: 7,  # chair
     58: 8,  # couch
     59: 9,  # potted plant
@@ -91,11 +91,11 @@ panopticSeg_mapping = {
     76: 21,  # vase
     42: 5,  # cup
     40: 4,  # bottle
-    ## stuff list, selected by myself
+    # stuff list, selected by myself
     87: 47,  # curtain
     88: 48,  # door-stuff
     90: 49,  # flower
-    95: 50,  # mirror-stuff    
+    95: 50,  # mirror-stuff
     106: 51,  # shelf
     108: 52,  # stairs
     117: 53,  # window
@@ -161,5 +161,3 @@ d3_41_colors_rgb: np.ndarray = np.array(
      [222, 158, 214], [255, 255, 255]],
     dtype=np.uint8,
 )
-
-#COCO_74_COLORS[0:41] = d3_41_colors_rgb[0:41]

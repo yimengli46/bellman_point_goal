@@ -1,23 +1,18 @@
 import numpy as np
-import numpy.linalg as LA
-import cv2
 import matplotlib.pyplot as plt
 import random
-from modeling.utils.baseline_utils import apply_color_to_map, pose_to_coords, pxl_coords_to_pose, gen_arrow_head_marker, read_map_npy, read_occ_map_npy, plus_theta_fn, minus_theta_fn, convertInsSegToSSeg, crop_map, spatial_transform_map
+from modeling.utils.baseline_utils import apply_color_to_map, pose_to_coords,  gen_arrow_head_marker, read_occ_map_npy, crop_map
 from core import cfg
 import modeling.utils.frontier_utils as fr_utils
 from modeling.localNavigator_Astar import localNav_Astar
 import networkx as nx
 from random import Random
-from timeit import default_timer as timer
-from itertools import islice
-from modeling.utils.navigation_utils import SimpleRLEnv, get_scene_name, get_obs_and_pose, get_obs_and_pose_by_action
+from modeling.utils.navigation_utils import get_obs_and_pose, get_obs_and_pose_by_action
 from modeling.utils.map_utils_pcd_height import SemanticMap
 import habitat
 import os
 from skimage.morphology import skeletonize
 from modeling.localNavigator_slam import localNav_slam
-import math
 import bz2
 import _pickle as cPickle
 import argparse
@@ -29,11 +24,10 @@ import torch
 
 
 def build_env(env_scene, device_id=0):
-    #================================ load habitat env============================================
+    # ================================ load habitat env============================================
     config = habitat.get_config(
         config_paths=cfg.GENERAL.DATALOADER_CONFIG_PATH)
     config.defrost()
-    #config.DATASET.DATA_PATH = cfg.GENERAL.HABITAT_TEST_EPISODE_DATA_PATH
     config.SIMULATOR.SCENE = f'{cfg.GENERAL.HABITAT_SCENE_DATA_PATH}/mp3d/{env_scene}/{env_scene}.glb'
     config.DATASET.SCENES_DIR = cfg.GENERAL.HABITAT_SCENE_DATA_PATH
     config.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = device_id
@@ -55,14 +49,14 @@ def compute_phi_from_quaternion(quat):
 class Data_Gen_View:
 
     def __init__(self, split, scene_name, saved_dir=''):
-        #============================ get a gpu
+        # ============================ get a gpu
         self.device_id = gpu_Q.get()
 
         self.split = split
         self.scene_name = scene_name
         self.random = Random(cfg.GENERAL.RANDOM_SEED)
 
-        #============= create scene folder =============
+        # ============= create scene folder =============
         scene_folder = f'{saved_dir}/{scene_name}'
         if not os.path.exists(scene_folder):
             print(
@@ -78,13 +72,13 @@ class Data_Gen_View:
 
         env_scene = scene_name[:-2]
 
-        #============================= initialize habitat env===================================
+        # ============================= initialize habitat env===================================
         self.scene_floor_dict = np.load(
             f'{cfg.GENERAL.SCENE_HEIGHTS_DICT_PATH}/{self.split}_scene_floor_dict.npy',
             allow_pickle=True).item()
         self.height = self.scene_floor_dict[env_scene][0]['y']
 
-        #================================ load habitat env============================================
+        # ================================ load habitat env============================================
         self.env = build_env(env_scene, device_id=self.device_id)
         self.env.reset()
 
@@ -94,7 +88,7 @@ class Data_Gen_View:
             for obj in scene.objects
         }
 
-        #================================= read in pre-built occupancy and semantic map =============================
+        # ================================= read in pre-built occupancy and semantic map =============================
         occ_map_npy = np.load(
             f'{cfg.SAVE.OCCUPANCY_MAP_PATH}/{self.split}/{scene_name}/BEV_occupancy_map.npy',
             allow_pickle=True).item()
@@ -151,17 +145,16 @@ class Data_Gen_View:
 
     def write_to_file(self, num_samples=100):
         count_sample = 0
-        #=========================== process each episode ======================
+        # =========================== process each episode ======================
         for idx_epi in range(len(self.episodes_list)):
             print(f'idx_epi = {idx_epi}')
 
-            #episode = self.random.choices(self.episodes_list, k=1)[0]
             episode = self.episodes_list[idx_epi]
             start_position = episode['start_position']
             goal_position = episode['goals'][0]['position']
             phi = compute_phi_from_quaternion(episode['start_rotation'])
 
-            #===================================== setup the start location ===============================#
+            # ===================================== setup the start location ===============================#
             start_pose = np.array(
                 [start_position[0], self.height, start_position[2]])
             goal_pose = np.array(
@@ -176,7 +169,7 @@ class Data_Gen_View:
                 continue
 
             try:
-                #=====================================start exploration ===============================
+                # =====================================start exploration ===============================
                 traverse_lst = []
                 action_lst = []
 
@@ -192,16 +185,6 @@ class Data_Gen_View:
                                                  heading_angle)
                     obs_list.append(obs)
                     pose_list.append(pose)
-                '''
-				elif cfg.NAVI.HFOV == 360:
-					obs_list, pose_list = [], []
-					for rot in [90, 180, 270, 0]:
-						heading_angle = rot / 180 * np.pi
-						heading_angle = plus_theta_fn(heading_angle, phi)
-						obs, pose = get_obs_and_pose(self.env, agent_pos, heading_angle)
-						obs_list.append(obs)
-						pose_list.append(pose)
-				'''
 
                 step = 0
                 previous_pose = pose_list[-1]
@@ -220,7 +203,7 @@ class Data_Gen_View:
                 while step < cfg.NAVI.NUM_STEPS:
                     print(f'step = {step}')
 
-                    #=============================== get agent global pose on habitat env ========================#
+                    # =============================== get agent global pose on habitat env ========================#
                     pose = pose_list[-1]
                     print(f'agent position = {pose[:2]}, angle = {pose[2]}')
                     agent_map_pose = (pose[0], -pose[1], -pose[2])
@@ -238,22 +221,23 @@ class Data_Gen_View:
 
                     if MODE_FIND_SUBGOAL:
                         observed_occupancy_map, gt_occupancy_map, observed_area_flag, built_semantic_map = \
-                         semMap_module.get_observed_occupancy_map(agent_map_pose)
+                            semMap_module.get_observed_occupancy_map(
+                                agent_map_pose)
 
-                        #======================= check if goal point is visible =============================
+                        # ======================= check if goal point is visible =============================
                         if self.LN.evaluate_point_goal_reachable(
                                 goal_coord, agent_map_pose,
                                 observed_occupancy_map):
                             '''
-							subgoal_coords = goal_coord
-							MODE_FIND_GOAL = True
-							chosen_frontier = None
-							'''
+                                                        subgoal_coords = goal_coord
+                                                        MODE_FIND_GOAL = True
+                                                        chosen_frontier = None
+                                                        '''
                             print(
                                 f'Now the point goal is reachable. Stop this episode.'
                             )
                             break
-                        #============================== find the nearest frontier ==========================
+                        # ============================== find the nearest frontier ==========================
                         else:
                             if frontiers is not None:
                                 old_frontiers = frontiers
@@ -280,7 +264,7 @@ class Data_Gen_View:
                             subgoal_coords = (int(chosen_frontier.centroid[1]),
                                               int(chosen_frontier.centroid[0]))
 
-                            #================================= save the frontier data ===========================
+                            # ================================= save the frontier data ===========================
                             lottery = self.random.uniform(0, 1)
                             print(f'lottery = {lottery}')
                             if lottery > cfg.PRED.PARTIAL_MAP.SAVING_GAP_PROB:
@@ -335,7 +319,7 @@ class Data_Gen_View:
                                         points[:, 1]] = goal_coord[1] - int(
                                             fron.centroid[0])
 
-                                #==========================crop the image =====================
+                                # ==========================crop the image =====================
                                 tensor_M_p = torch.tensor(
                                     M_p).float().unsqueeze(0)
                                 tensor_U_PS = torch.tensor(
@@ -443,7 +427,7 @@ class Data_Gen_View:
                                     0).numpy().astype(bool)
                                 mask_RE = tensor_mask_RE.squeeze(0).squeeze(
                                     0).numpy().astype(bool)
-                                #print(f'tensor_U_d.shape = {tensor_U_d.shape}')
+
                                 q_G = tensor_q_G.squeeze(0).numpy().astype(
                                     np.int16)
 
@@ -461,7 +445,7 @@ class Data_Gen_View:
                                     print(f'end q_G.shape = {q_G.shape}')
                                     print(f'end q_G.dtype = {q_G.dtype}')
 
-                                #=================================== visualize M_p =========================================
+                                # =================================== visualize M_p =========================================
                                 if cfg.PRED.PARTIAL_MAP.FLAG_VISUALIZE_PRED_LABELS:
                                     occ_map_Mp = M_p[0]
                                     sem_map_Mp = M_p[1]
@@ -564,29 +548,29 @@ class Data_Gen_View:
                                         'w') as fp:
                                     cPickle.dump(eps_data, fp)
 
-                                #===================================================================
+                                # ===================================================================
                                 count_sample += 1
 
                                 if count_sample == num_samples:
                                     self.env.close()
-                                    #================================ release the gpu============================
+                                    # ================================ release the gpu============================
                                     gpu_Q.put(self.device_id)
                                     return
 
                         MODE_FIND_SUBGOAL = False
-                        #============================================= visualize semantic map ===========================================#
+                        # ============================================= visualize semantic map ===========================================#
                     if cfg.NAVI.FLAG_VISUALIZE_MIDDLE_TRAJ:
-                        #=================================== visualize the agent pose as red nodes =======================
+                        # =================================== visualize the agent pose as red nodes =======================
                         x_coord_lst, z_coord_lst, theta_lst = [], [], []
                         for cur_pose in traverse_lst:
                             x_coord, z_coord = pose_to_coords(
-                                (cur_pose[0], cur_pose[1]), pose_range,
-                                coords_range, WH)
+                                (cur_pose[0], cur_pose[1]), self.pose_range,
+                                self.coords_range, self.WH)
                             x_coord_lst.append(x_coord)
                             z_coord_lst.append(z_coord)
                             theta_lst.append(cur_pose[2])
 
-                        #'''
+                        # '''
                         fig, ax = plt.subplots(nrows=1,
                                                ncols=1,
                                                figsize=(10, 10))
@@ -635,20 +619,19 @@ class Data_Gen_View:
 
                         fig.tight_layout()
                         plt.title('observed area')
-                        #plt.show()
-                        fig.savefig(f'{saved_folder}/step_{step}_semmap.jpg')
+                        # plt.show()
+                        fig.savefig(
+                            f'{self.saved_folder}/step_{step}_semmap.jpg')
                         plt.close()
-                        #assert 1==2
-                        #'''
 
-                    #===================================== check if exploration is done ========================
+                    # ===================================== check if exploration is done ========================
                     if (chosen_frontier is None) and (not MODE_FIND_GOAL):
                         print(
                             'There are no more frontiers to explore. Stop navigation.'
                         )
                         break
 
-                    #====================================== take next action ================================
+                    # ====================================== take next action ================================
                     act, act_seq = self.LS.plan_to_reach_subgoal(
                         agent_map_pose, subgoal_coords, observed_occupancy_map)
                     action_lst.append(act)
@@ -671,19 +654,6 @@ class Data_Gen_View:
                                 self.env, act)
                             obs_list.append(obs)
                             pose_list.append(pose)
-                        '''
-						elif cfg.NAVI.HFOV == 360:
-							obs_list, pose_list = [], []
-							obs, pose = get_obs_and_pose_by_action(self.env, act)
-							next_pose = pose
-							agent_pos = np.array([next_pose[0], self.height, next_pose[1]])
-							for rot in [90, 180, 270, 0]:
-								heading_angle = rot / 180 * np.pi
-								heading_angle = plus_theta_fn(heading_angle, -next_pose[2])
-								obs, pose = get_obs_and_pose(self.env, agent_pos, heading_angle)
-								obs_list.append(obs)
-								pose_list.append(pose)
-						'''
 
                     if explore_steps == cfg.NAVI.NUM_STEPS_EXPLORE:
                         explore_steps = 0
@@ -692,12 +662,12 @@ class Data_Gen_View:
                 print(f'*****run into an error ...')
 
         self.env.close()
-        #================================ release the gpu============================
+        # ================================ release the gpu============================
         gpu_Q.put(self.device_id)
         return
 
 
-#'''
+# '''
 def multi_run_wrapper(args):
     """ wrapper for multiprocessor """
     gen = Data_Gen_View(args[0], args[1], saved_dir=args[2])
@@ -713,7 +683,7 @@ def main():
         'configs/exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml')
     cfg.freeze()
 
-    #====================== get the available GPU devices ============================
+    # ====================== get the available GPU devices ============================
     visible_devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     devices = [int(dev) for dev in visible_devices]
 
@@ -754,21 +724,12 @@ def main():
             args2 = [split_folder for _ in range(len(scene_list))]
             pool.map(multi_run_wrapper, list(zip(args0, args1, args2)))
             pool.close()
-    elif cfg.PRED.PARTIAL_MAP.multiprocessing == 'mpi4y':
-        from mpi4py.futures import MPIPoolExecutor
-        args0 = [split for _ in range(len(scene_list))]
-        args1 = [scene for scene in scene_list]
-        args2 = [split_folder for _ in range(len(scene_list))]
-        executor = MPIPoolExecutor()
-        prime_sets = executor.map(multi_run_wrapper,
-                                  list(zip(args0, args1, args2)))
-        executor.shutdown()
 
 
 if __name__ == "__main__":
     gpu_Q = multiprocessing.Queue()
     main()
-#'''
+# '''
 '''
 cfg.merge_from_file('configs/exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml')
 cfg.freeze()
