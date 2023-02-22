@@ -7,7 +7,15 @@ George Mason University
 
 Project website: [https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html](https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html)
 
-<img src='Figs/test_cases.png'>
+<video src='Figs/DP_YFu_merge.mp4' width=4500/>
+
+```bibtex
+@inproceedings{li2022comparison,
+  title={Comparison of Model Free and Model-Based Learning-Informed Planning for PointGoal Navigation},
+  author={Li, Yimeng and Debnath, Arnab and Stein, Gregory J and Kosecka, Jana},
+  booktitle={CoRL 2022 Workshop on Learning, Perception, and Abstraction for Long-Horizon Planning}
+}
+```
 
 ### Installation
 ```
