@@ -7,7 +7,7 @@ George Mason University
 
 Project website: [https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html](https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html)
 
-<img src='Figs/DP_YFu_merge.gif' width=4500/>
+<img src='Figs/DP_YFu_merge.gif'/>
 
 ```bibtex
 @inproceedings{li2022comparison,
