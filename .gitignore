@@ -6,3 +6,8 @@ data
 run/
 requirements_py36.txt
 run.sh
+eigen-3.4.0
+lsp_accel/.eggs
+lsp_accel/build
+lsp_accel/lsp_accel.egg-info/
+lsp_accel/pybind11/
