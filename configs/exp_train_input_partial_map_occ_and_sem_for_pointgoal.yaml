@@ -18,7 +18,7 @@ PRED:
     CHECKNAME: unet
     DEVICE: cuda
     DIVIDE_AREA: 100
-    EPOCHS: 6
+    EPOCHS: 8
     EVAL_INTERVAL: 1
     FLAG_VISUALIZE_PRED_LABELS: False
     INPUT: occ_and_sem
@@ -28,7 +28,7 @@ PRED:
     LOSS_TYPE: L1
     NEIGHBOR_SIZE: 40
     NUM_GENERATED_SAMPLES_PER_SCENE: 5000
-    NUM_WORKERS: 15
+    NUM_WORKERS: 16
     RESUME: ''
     SAVED_FOLDER: 'output/model_weights_UNet_input_partial_map_for_pointgoal'
     STEP_GAP: 5
