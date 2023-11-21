@@ -69,7 +69,7 @@ tensorboardX
 To install lsp-accel, first install [Eigen](https://eigen.tuxfamily.org/dox/GettingStarted.html "Eigen").   
 Then change `line 30` of `lsp_accel/CMakeLists.txt` into where *Eigen* folder is located.
 ```
-pip install lsp_accel
+pip install lsp_accel/
 ```
 
 ### Dataset Setup

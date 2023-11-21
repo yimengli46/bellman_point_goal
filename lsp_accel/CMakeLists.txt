@@ -27,7 +27,7 @@ link_directories(/usr/local/lib)
 include_directories(src)
 
 # Include Eigen
-include_directories(/home/yimeng/work/bellman_point_goal/RAIL-core-main/eigen-3.4.0)
+include_directories(/home/yimeng/work/bellman_point_goal/eigen-3.4.0)
 
 # Build the python library
 add_subdirectory(pybind11)
