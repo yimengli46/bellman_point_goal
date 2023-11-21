@@ -20,8 +20,19 @@ env_scene = 'yqstnuAEVhm'  # '17DRP5sb8fy' #'yqstnuAEVhm'
 floor_id = 0
 scene_name = 'yqstnuAEVhm_0'  # '17DRP5sb8fy_0' #'yqstnuAEVhm_0'
 
+# =========================== running the optimistic planner ===============================
 cfg.merge_from_file(
-    'configs/large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml')
+    'configs/exp_90degree_Optimistic_NAVMESH_MAP_1STEP_500STEPS.yaml')
+
+# ================================ running LSP-UNet ========================================
+# cfg.merge_from_file(
+#     'configs/exp_90degree_DP_NAVMESH_MAP_UNet_OCCandSEM_Potential_1STEP_500STEPS.yaml')
+
+# ================================== running LSP-GT =======================================
+# cfg.merge_from_file(
+#     'configs/exp_90degree_DP_NAVMESH_MAP_GT_Potential_1STEP_500STEPS.yaml')
+
+
 cfg.freeze()
 
 if cfg.EVAL.SIZE == 'small':
@@ -74,6 +85,7 @@ H, W = gt_occ_map.shape[:2]
 # for computing gt skeleton
 if cfg.NAVI.D_type == 'Skeleton':
     skeleton = skeletonize(gt_occ_map)
+
     if cfg.NAVI.PRUNE_SKELETON:
         skeleton = fr_utils.prune_skeleton(gt_occ_map, skeleton)
 
@@ -85,11 +97,7 @@ if cfg.NAVI.PERCEPTION == 'UNet_Potential':
         n_class_out=cfg.PRED.PARTIAL_MAP.OUTPUT_CHANNEL).to(device)
     if cfg.PRED.PARTIAL_MAP.INPUT == 'occ_and_sem':
         checkpoint = torch.load(
-            f'{cfg.PRED.PARTIAL_MAP.SAVED_FOLDER}/{cfg.PRED.PARTIAL_MAP.INPUT}/experiment_1/best_checkpoint.pth.tar',
-            map_location=device)
-    elif cfg.PRED.PARTIAL_MAP.INPUT == 'occ_only':
-        checkpoint = torch.load(
-            f'run/MP3D/unet/experiment_5/checkpoint.pth.tar',
+            f'{cfg.PRED.PARTIAL_MAP.SAVED_FOLDER}/{cfg.PRED.PARTIAL_MAP.INPUT}/model_best.pth.tar',
             map_location=device)
 
     new_state_dict = OrderedDict()
@@ -119,6 +127,7 @@ goal_coord = pose_to_coords((goal_pose[0], -goal_pose[1]), pose_range,
                             coords_range, WH)
 agent_pos = np.array([start_pose[0], scene_height,
                       start_pose[1]])  # (6.6, -6.9), (3.6, -4.5)
+
 # check if the start point is navigable
 if not env.is_navigable(agent_pos):
     print(f'start pose is not navigable ...')
@@ -164,6 +173,7 @@ while step < cfg.NAVI.NUM_STEPS:
                                      pose_list,
                                      step=step,
                                      saved_folder=saved_folder)
+
     t1 = timer()
     print(f'build map time = {t1 - t0}')
 
@@ -177,6 +187,7 @@ while step < cfg.NAVI.NUM_STEPS:
         # ======================= check if goal point is reachable =============================
         if LN.evaluate_point_goal_reachable(goal_coord, agent_map_pose,
                                             observed_occupancy_map):
+
             subgoal_coords = goal_coord
             MODE_FIND_GOAL = True
             chosen_frontier = None
@@ -217,6 +228,7 @@ while step < cfg.NAVI.NUM_STEPS:
                     frontiers,
                     max_dist=5,
                     chosen_frontier=chosen_frontier)
+
             t6 = timer()
             print(f'update frontiers time = {t6 - t5}')
 
@@ -268,7 +280,7 @@ while step < cfg.NAVI.NUM_STEPS:
                       zorder=5)
         ax[0].plot(x_coord_lst, z_coord_lst, lw=5, c='blue', zorder=3)
         if not MODE_FIND_GOAL:
-            for f in top_frontiers:
+            for f in frontiers:
                 ax[0].scatter(f.points[1], f.points[0], c='green', zorder=2)
                 ax[0].scatter(f.centroid[1], f.centroid[0], c='red', zorder=2)
             if chosen_frontier is not None:
@@ -314,6 +326,7 @@ while step < cfg.NAVI.NUM_STEPS:
     else:
         step += 1
         explore_steps += 1
+
         # output rot is negative of the input angle
         if cfg.NAVI.HFOV == 90:
             obs_list, pose_list = [], []

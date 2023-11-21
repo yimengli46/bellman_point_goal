@@ -1,11 +1,16 @@
 import numpy as np
+import numpy.linalg as LA
+import cv2
 import matplotlib.pyplot as plt
+import random
 from core import cfg
 import torch.utils.data as data
 import torch
 import torch.nn.functional as F
+from random import Random
 import os
 import glob
+import pickle
 from modeling.utils.baseline_utils import apply_color_to_map
 import bz2
 import _pickle as cPickle
@@ -19,18 +24,14 @@ class MP3DSceneDataset(data.Dataset):
 
         self.saved_folder = f'{data_folder}/{self.split}/{self.scene_name}'
 
-        self.sample_name_list = [
-            os.path.splitext(os.path.basename(x))[0]
-            for x in sorted(glob.glob(f'{self.saved_folder}/*.pbz2'))
-        ]
+        self.sample_name_list = [os.path.splitext(os.path.basename(x))[0]
+                                 for x in sorted(glob.glob(f'{self.saved_folder}/*.pbz2'))]
 
     def __len__(self):
         return len(self.sample_name_list)
 
     def __getitem__(self, i):
-        with bz2.BZ2File(
-                f'{self.saved_folder}/{self.sample_name_list[i]}.pbz2',
-                'rb') as fp:
+        with bz2.BZ2File(f'{self.saved_folder}/{self.sample_name_list[i]}.pbz2', 'rb') as fp:
             eps_data = cPickle.load(fp)
             M_p = eps_data['M_p']  # 2 x H x W
             U_PS = eps_data['U_PS']  # H x W
@@ -134,14 +135,14 @@ class MP3DSceneDataset(data.Dataset):
         tensor_qG = torch.tensor(q_G, dtype=torch.float32)
         tensor_mask = torch.tensor(mask_all, dtype=torch.bool)
 
+        # print(f'tensor_Mp.max = {torch.max(tensor_Mp)}')
         # ================= convert input tensor into one-hot vector===========================
         tensor_Mp_occ = tensor_Mp[0]  # H x W
-        tensor_Mp_occ = F.one_hot(tensor_Mp_occ,
-                                  num_classes=3).permute(2, 0, 1)  # 3 x H x W
+        tensor_Mp_occ = F.one_hot(
+            tensor_Mp_occ, num_classes=3).permute(2, 0, 1)  # 3 x H x W
         tensor_Mp_sem = tensor_Mp[1]
-        tensor_Mp_sem = F.one_hot(
-            tensor_Mp_sem, num_classes=cfg.SEM_MAP.GRID_CLASS_SIZE).permute(
-                2, 0, 1)  # num_classes x H x W
+        tensor_Mp_sem = F.one_hot(tensor_Mp_sem, num_classes=cfg.SEM_MAP.GRID_CLASS_SIZE).permute(
+            2, 0, 1)  # num_classes x H x W
 
         tensor_Mp = torch.cat((tensor_Mp_occ, tensor_Mp_sem), 0).float()
         tensor_input = torch.cat((tensor_Mp, tensor_qG), 0)
@@ -150,12 +151,7 @@ class MP3DSceneDataset(data.Dataset):
             tensor_Mp = tensor_Mp[0:3]
             tensor_input = torch.cat((tensor_Mp, tensor_qG), 0)
 
-        return {
-            'input': tensor_input,
-            'output': tensor_U,
-            'mask': tensor_mask,
-            'shape': (H, W)
-        }
+        return {'input': tensor_input, 'output': tensor_U, 'mask': tensor_mask, 'shape': (H, W)}
 
 
 def get_all_scene_dataset(split, scene_list, data_folder):
