@@ -66,7 +66,8 @@ scikit-image
 sknw
 tensorboardX
 ```
-To install lsp-accel, change `line 30` of `lsp_accel/CMakeLists.txt` into where *Eigen* is located.
+To install lsp-accel, first install [Eigen](https://eigen.tuxfamily.org/dox/GettingStarted.html "Eigen").   
+Then change `line 30` of `lsp_accel/CMakeLists.txt` into where *Eigen* folder is located.
 ```
 pip install lsp_accel
 ```
@@ -100,7 +101,7 @@ The code can do
 All the parameters are controlled by the configuration file `core/config.py`.   
 Please create a new configuration file when you initialize a new task and saved in folder `configs`.
 ##### Exploring the environment
-To run the large-scale evaluation, you need to download pre-generated `scene_maps`, `scene_floor_heights` and `large_scale_semantic_maps` from [here](https://drive.google.com/file/d/1uqCL6N2kpOPjvumw-lBQw55bv288qkDx/view?usp=share_link "here").  
+To run the large-scale evaluation, you need to download pre-generated `scene_maps`, `scene_floor_heights`, `large_scale_semantic_maps` and `point_goal_episodes` from [here](https://drive.google.com/file/d/1wRg9QjNZcLPMdJdWIu9tZLOPTWe-JDd7/view?usp=sharing "here").  
 Download it, unzip it and put the folders under `bellman_point_goal/output`.  
 Then you can start the evaluation.  
 For example, if you want to evaluate the optimistic planner on your desktop, use the following command.  
@@ -112,4 +113,13 @@ If you have a server with multiple GPUs, use another configuration file.
 python main_eval_multiprocess.py --config='large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
 
-
+### Train the learning modules
+##### Generate training data
+To generate training data, run the following command:   
+```
+python data_generator_for_point_goal.py --j=1
+```
+You can customize the training hyperparameters using the configuration file `exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml`.        
+Here are a few key options:     
+* Set the `SPLIT` parameter to either `train` or `val` to generate data for training or validation scenes.
+* Adjust `PRED.PARTIAL_MAP.multiprocessing` to `single` or mp for single-threaded or multithreaded generation, respectively.
