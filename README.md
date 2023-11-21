@@ -96,22 +96,48 @@ habitat-lab/data
 ```
 
 ### How to Run?
-The code can do  
-(a) Point Goal Navigation on MP3D test episodes.   
-All the parameters are controlled by the configuration file `core/config.py`.   
-Please create a new configuration file when you initialize a new task and saved in folder `configs`.
-##### Exploring the environment
-To run the large-scale evaluation, you need to download pre-generated `scene_maps`, `scene_floor_heights`, `large_scale_semantic_maps` and `point_goal_episodes` from [here](https://drive.google.com/file/d/1wRg9QjNZcLPMdJdWIu9tZLOPTWe-JDd7/view?usp=sharing "here").  
-Download it, unzip it and put the folders under `bellman_point_goal/output`.  
-Then you can start the evaluation.  
-For example, if you want to evaluate the optimistic planner on your desktop, use the following command.  
+The code supports       
+(a) **Point Goal Navigation on MP3D test episodes.**     
+All parameters are managed through the configuration file `core/config.py`.     
+When initiating a new task, create a new configuration file and save it in the `configs` folder.     
+
+##### Running the Demo
+Before executing the demo, download the pre-generated `scene_maps`, `scene_floor_heights`, `large_scale_semantic_maps`, and `point_goal_episodes` from [this link](https://drive.google.com/file/d/1wRg9QjNZcLPMdJdWIu9tZLOPTWe-JDd7/view?usp=sharing).    
+Unzip the file and place the folders under `bellman_point_goal/output`.
+
+The trained learning module is available for download [here](https://drive.google.com/file/d/183KNDKuFDM5RDqE1AlbhNgEff3ydypkD/view?usp=sharing).    
+Unzip it and place the folders under `bellman_point_goal/output`.
+
+To run the demo code of an optimistic planner:
+```
+python demo_bellman_point_goal.py
+```
+For the LSP-UNet demo, comment out lines 28 and 29 of demo_bellman_point_goal.py, then run:
+```
+python demo_bellman_point_goal.py
+```
+For the LSP-GT demo, comment out lines 32 and 33 of demo_bellman_point_goal.py, then run:
+```
+python demo_bellman_point_goal.py
+```
+Demo Results
+
+<img src='Figs/demo_results.jpg' width="800"/>
+
+
+### Large-Scale EVAL
+To initiate the evaluation, follow these steps:
+
+For example, if you wish to evaluate the optimistic planner on your desktop, use the following command:
 ```
 python main_eval.py --config='exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
-If you have a server with multiple GPUs, use another configuration file.
+If you're utilizing a server equipped with multiple GPUs, opt for a different configuration file:
 ```
 python main_eval_multiprocess.py --config='large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
+This setup allows you to seamlessly assess the performance of your system in various environments.     
+Adjust configurations as needed to suit your evaluation requirements.    
 
 ### Train the learning modules
 ##### Generate training data
@@ -123,3 +149,9 @@ You can customize the training hyperparameters using the configuration file `exp
 Here are a few key options:     
 * Set the `SPLIT` parameter to either `train` or `val` to generate data for training or validation scenes.
 * Adjust `PRED.PARTIAL_MAP.multiprocessing` to `single` or mp for single-threaded or multithreaded generation, respectively.
+
+
+##### Train the learning module
+```
+python train_UNet_input_partial_map.py
+```
