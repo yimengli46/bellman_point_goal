@@ -5,7 +5,7 @@ This is the code release for our CoRL 2022 Long Horizon Planning Workshop paper:
 Yimeng Li*, Arnab Debnath*, Gregory J. Stein, Jana Kosecka<br/>
 George Mason University
 
-Project website: [https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html](https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html)
+[Project website](https://yimengli46.github.io/Projects/CoRL2022LHPWorkshop/index.html)
 
 <img src='Figs/DP_YFu_merge.gif'/>
 
@@ -66,8 +66,16 @@ scikit-image
 sknw
 tensorboardX
 ```
-To install lsp-accel, first install [Eigen](https://eigen.tuxfamily.org/dox/GettingStarted.html "Eigen").   
-Then change `line 30` of `lsp_accel/CMakeLists.txt` into where *Eigen* folder is located.
+
+To set up `lsp-accel`, begin by installing [Eigen](https://eigen.tuxfamily.org/dox/GettingStarted.html "Eigen").      
+Download the Eigen source code, unzip it, and place it in the `lsp_accel` directory.    
+The folder structure should resemble the following:
+```
+bellman_point_goal
+  └── lsp_accel
+        └── eigen
+```
+Next, navigate to the `bellman_point_goal` directory and run:     
 ```
 pip install lsp_accel/
 ```
@@ -77,7 +85,7 @@ Download *scene* dataset of **Matterport3D(MP3D)** from [here](https://github.co
 Upzip the scene data and put it under `habitat-lab/data/scene_datasets/mp3d`.  
 You are also suggested to download *task* dataset of **Point goal Navigation on MP3D** from [here](https://github.com/facebookresearch/habitat-lab/blob/main/DATASETS.md "here")  
 Unzip the episode data and put it under `habitat-lab/data/datasets/pointnav/mp3d`.  
-Create softlinks to the data.  
+Create soft links to the data.  
 ```
 cd  bellman_point_goal
 ln -s habitat-lab/data data
@@ -85,14 +93,14 @@ ln -s habitat-lab/data data
 The code requires the datasets in data folder in the following format:
 ```
 habitat-lab/data
-                /datasets/pointnav/mp3d/v1
-                                        /train
-                                        /val
-                                        /test
-                scene_datasets/mp3d
-                                    /1LXtFkjw3qL
-                                    /1pXnuDYAj8r
-                                    /....
+  └── datasets/pointnav/mp3d/v1
+       └── train
+       └── val
+       └── test
+  └── scene_datasets/mp3d
+        └── 1LXtFkjw3qL
+        └── 1pXnuDYAj8r
+        └── ....
 ```
 
 ### How to Run?
@@ -124,8 +132,7 @@ Demo Results
 
 <img src='Figs/demo_results.jpg' width="800"/>
 
-
-### Large-Scale EVAL
+(b) **Large-Scale EVAL**     
 To initiate the evaluation, follow these steps:
 
 For example, if you wish to evaluate the optimistic planner on your desktop, use the following command:
@@ -136,8 +143,16 @@ If you're utilizing a server equipped with multiple GPUs, opt for a different co
 ```
 python main_eval_multiprocess.py --config='large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
-This setup allows you to seamlessly assess the performance of your system in various environments.     
-Adjust configurations as needed to suit your evaluation requirements.    
+This setup allows you to adjust configurations as needed to suit your evaluation requirements.     
+I provided the configuration files in the `configs` folder.
+Here is the naming convention for the config files.
+* Config files start with `large_exp` in the title run the entire PointGoal navigation testing episodes, while config files with only `exp` in the title run the first 3 episodes of each test scene.
+* `Optimistic` in the title means running the optimistic planner and `DP` in the title means running the Bellman Equation formulated point goal navigation.
+* `NAVMESH` means using an Oracle mapper and `PCDHEIGHT` means building the map on the fly.
+* `UNet_OCCandSEM_Potential` means the potential is computed by UNet taking input of both occupancy and semantic maps and `GT_Potential` means using the ground-truth potential values.
+* `500STEPS` means the maximum number of steps allowed is 500.
+
+
 
 ### Train the learning modules
 ##### Generate training data
@@ -155,3 +170,6 @@ Here are a few key options:
 ```
 python train_UNet_input_partial_map.py
 ```
+You can customize the training hyperparameters using the configuration file `exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml`.        
+Here are a few key options:     
+* Adjust `BATCH_SIZE`, `EPOCHS` and `NUM_WORKERS` according to your computer hardware and GPU emory.
