@@ -132,25 +132,26 @@ Demo Results
 
 <img src='Figs/demo_results.jpg' width="800"/>
 
-(b) **Large-Scale EVAL**     
-To initiate the evaluation, follow these steps:
+(b) **Large-Scale Evaluation**     
+Initiating the evaluation is a straightforward process. Follow these steps:    
 
-For example, if you wish to evaluate the optimistic planner on your desktop, use the following command:
+1. For desktop evaluation of the optimistic planner, use the following command:
 ```
 python main_eval.py --config='exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
-If you're utilizing a server equipped with multiple GPUs, opt for a different configuration file:
+2. If you're working with a server equipped with multiple GPUs, choose an alternative configuration file:
 ```
 python main_eval_multiprocess.py --config='large_exp_90degree_Optimistic_PCDHEIGHT_MAP_1STEP_500STEPS.yaml'
 ```
-This setup allows you to adjust configurations as needed to suit your evaluation requirements.     
-I provided the configuration files in the `configs` folder.
-Here is the naming convention for the config files.
-* Config files start with `large_exp` in the title run the entire PointGoal navigation testing episodes, while config files with only `exp` in the title run the first 3 episodes of each test scene.
-* `Optimistic` in the title means running the optimistic planner and `DP` in the title means running the Bellman Equation formulated point goal navigation.
-* `NAVMESH` means using an Oracle mapper and `PCDHEIGHT` means building the map on the fly.
-* `UNet_OCCandSEM_Potential` means the potential is computed by UNet taking input of both occupancy and semantic maps and `GT_Potential` means using the ground-truth potential values.
-* `500STEPS` means the maximum number of steps allowed is 500.
+Feel free to customize configurations to meet your evaluation requirements.      
+Configuration files are provided in the `configs` folder, following this naming convention:
+* Files starting with `large_exp` run complete PointGoal navigation testing episodes.
+* Files with only `exp` run the first three episodes of each test scene.
+* `Optimistic` in the title signifies running the optimistic planner, while `DP` signifies running the Bellman Equation formulated point goal navigation.
+* `NAVMESH` uses an oracle mapper, and `PCDHEIGHT` builds the map on the fly.
+* `UNet_OCCandSEM_Potential` means the potential is computed by UNet with inputs of both occupancy and semantic maps.
+* `GT_Potential` means using ground-truth potential values.
+* `500STEPS` signifies a maximum of 500 allowed steps.
 
 
 
@@ -167,9 +168,10 @@ Here are a few key options:
 
 
 ##### Train the learning module
+Run the following command to initiate training:
 ```
 python train_UNet_input_partial_map.py
 ```
-You can customize the training hyperparameters using the configuration file `exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml`.        
-Here are a few key options:     
-* Adjust `BATCH_SIZE`, `EPOCHS` and `NUM_WORKERS` according to your computer hardware and GPU emory.
+Customize training hyperparameters using the same `exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml` configuration file.      
+Key options include:
+* Adjust `BATCH_SIZE`, `EPOCHS`, and `NUM_WORKERS` based on your computer hardware and GPU memory.
