@@ -164,7 +164,7 @@ python data_generator_for_point_goal.py --j=1
 You can customize the training hyperparameters using the configuration file `exp_train_input_partial_map_occ_and_sem_for_pointgoal.yaml`.        
 Here are a few key options:     
 * Set the `SPLIT` parameter to either `train` or `val` to generate data for training or validation scenes.
-* Adjust `PRED.PARTIAL_MAP.multiprocessing` to `single` or mp for single-threaded or multithreaded generation, respectively.
+* Adjust `PRED.PARTIAL_MAP.multiprocessing` to `single` or `mp` for single-threaded or multithreaded generation, respectively.
 
 
 ##### Train the learning module
